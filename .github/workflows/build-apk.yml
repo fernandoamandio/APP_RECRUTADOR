@@ -45,9 +45,15 @@ jobs:
         run: |
           test -n "$SUPABASE_URL" || { echo "::error::Secret SUPABASE_URL ausente"; exit 1; }
           test -n "$SUPABASE_PUBLISHABLE_KEY" || { echo "::error::Secret SUPABASE_PUBLISHABLE_KEY ausente"; exit 1; }
+          set -o pipefail
           flutter build apk --release \
             --dart-define=SUPABASE_URL="$SUPABASE_URL" \
-            --dart-define=SUPABASE_PUBLISHABLE_KEY="$SUPABASE_PUBLISHABLE_KEY"
+            --dart-define=SUPABASE_PUBLISHABLE_KEY="$SUPABASE_PUBLISHABLE_KEY" 2>&1 | tee build.txt || {
+            # Publica as linhas relevantes do erro como anotações
+            grep -iE "error|exception|what went wrong|failed|could not|requires|incompatible" -A2 build.txt \
+              | grep -v '^--$' | head -n 45 | sed 's/^/::error::/'
+            exit 1
+          }
           cp build/app/outputs/flutter-apk/app-release.apk vagas-globais.apk
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
