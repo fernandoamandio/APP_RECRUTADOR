@@ -39,7 +39,12 @@ jobs:
           # Nome que aparece embaixo do ícone
           sed -i 's#android:label="recrutador"#android:label="Vagas Globais"#' "$manifest"
 
-      - run: flutter pub get
+      - name: Dependências
+        run: |
+          # A versão 8 do file_picker compila contra um Android antigo; usa a mais recente
+          flutter pub upgrade --major-versions file_picker
+          echo "::notice::$(grep -A1 '^  file_picker:' pubspec.lock | tr -s ' ' | tr '\n' ' ')"
+          echo "::notice::pubspec $(grep 'file_picker' pubspec.yaml)"
 
       - name: Compilar APK
         run: |
