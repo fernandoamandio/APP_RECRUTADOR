@@ -61,8 +61,8 @@ class _CareerProfileScreenState extends ConsumerState<CareerProfileScreen> {
           return ListView(
             padding: const EdgeInsets.all(20),
             children: [
-              Chip(
-                label: const Text('Gerado do seu currículo · revise'),
+              const Chip(
+                label: Text('Gerado do seu currículo · revise'),
                 backgroundColor: AppColors.remoteTint,
                 side: BorderSide.none,
               ),

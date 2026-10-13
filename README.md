@@ -44,7 +44,7 @@ python -m recrutador.main              # uma rodada de coleta + triagem
 cd app
 flutter create . --platforms=android,ios --project-name recrutador   # gera as pastas de plataforma
 flutter pub get
-flutter run --dart-define=SUPABASE_URL=https://xxx.supabase.co --dart-define=SUPABASE_ANON_KEY=...
+flutter run --dart-define=SUPABASE_URL=https://xxx.supabase.co --dart-define=SUPABASE_PUBLISHABLE_KEY=...
 ```
 
 ## Fontes de vagas e termos de uso

@@ -6,12 +6,12 @@ import 'app.dart';
 
 // Configuração via --dart-define (nunca coloque chaves no código).
 const supabaseUrl = String.fromEnvironment('SUPABASE_URL');
-const supabaseAnonKey = String.fromEnvironment('SUPABASE_ANON_KEY');
+const supabasePublishableKey = String.fromEnvironment('SUPABASE_PUBLISHABLE_KEY');
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  assert(supabaseUrl.isNotEmpty && supabaseAnonKey.isNotEmpty,
-      'Defina SUPABASE_URL e SUPABASE_ANON_KEY com --dart-define');
-  await Supabase.initialize(url: supabaseUrl, anonKey: supabaseAnonKey);
+  assert(supabaseUrl.isNotEmpty && supabasePublishableKey.isNotEmpty,
+      'Defina SUPABASE_URL e SUPABASE_PUBLISHABLE_KEY com --dart-define');
+  await Supabase.initialize(url: supabaseUrl, publishableKey: supabasePublishableKey);
   runApp(const ProviderScope(child: RecrutadorApp()));
 }
