@@ -35,7 +35,7 @@ ThemeData buildTheme() {
         textStyle: GoogleFonts.manrope(fontSize: 16, fontWeight: FontWeight.w700),
       ),
     ),
-    cardTheme: const CardTheme(
+    cardTheme: const CardThemeData(
       color: Colors.white,
       elevation: 0,
       margin: EdgeInsets.zero,
