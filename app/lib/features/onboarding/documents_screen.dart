@@ -19,18 +19,17 @@ class _DocumentsScreenState extends ConsumerState<DocumentsScreen> {
   bool _consent = false;
   bool _busy = false;
 
-  Future<PlatformFile?> _pick() async {
-    final r = await FilePicker.platform.pickFiles(type: FileType.custom, allowedExtensions: ['pdf'], withData: true);
-    return r?.files.single;
-  }
+  Future<PlatformFile?> _pick() =>
+      FilePicker.pickFile(type: FileType.custom, allowedExtensions: ['pdf']);
 
   Future<void> _submit() async {
     final repo = ref.read(repositoryProvider);
     setState(() => _busy = true);
     try {
       await repo.saveConsent();
-      final cvId = await repo.uploadDocument('cv', _cv!.bytes!);
-      final coverId = _cover == null ? null : await repo.uploadDocument('cover_letter', _cover!.bytes!);
+      final cvId = await repo.uploadDocument('cv', await _cv!.readAsBytes());
+      final coverId =
+          _cover == null ? null : await repo.uploadDocument('cover_letter', await _cover!.readAsBytes());
       await repo.analyzeCv(cvId, coverId);
       if (mounted) context.go('/onboarding/household');
     } catch (e) {
