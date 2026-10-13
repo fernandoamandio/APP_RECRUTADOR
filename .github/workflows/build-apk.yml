@@ -1,0 +1,60 @@
+name: Gerar APK (Android)
+
+# Roda manualmente pela aba Actions ("Run workflow") ou quando o app muda.
+on:
+  workflow_dispatch: {}
+  push:
+    branches: [main]
+    paths: ["app/**", ".github/workflows/build-apk.yml"]
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: app
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      # O repositório guarda só o código Dart; a pasta android/ é gerada aqui
+      - name: Gerar projeto Android
+        run: |
+          flutter create . --platforms=android --project-name recrutador --org io.recrutador
+          rm -f test/widget_test.dart
+          # O template só libera internet nos builds de debug; o release também precisa
+          manifest=android/app/src/main/AndroidManifest.xml
+          grep -q 'android.permission.INTERNET' "$manifest" || \
+            sed -i 's#<application#<uses-permission android:name="android.permission.INTERNET"/>\n    <application#' "$manifest"
+          # Nome que aparece embaixo do ícone
+          sed -i 's#android:label="recrutador"#android:label="Vagas Globais"#' "$manifest"
+
+      - run: flutter pub get
+
+      - name: Compilar APK
+        run: |
+          test -n "$SUPABASE_URL" || { echo "::error::Secret SUPABASE_URL ausente"; exit 1; }
+          test -n "$SUPABASE_PUBLISHABLE_KEY" || { echo "::error::Secret SUPABASE_PUBLISHABLE_KEY ausente"; exit 1; }
+          flutter build apk --release \
+            --dart-define=SUPABASE_URL="$SUPABASE_URL" \
+            --dart-define=SUPABASE_PUBLISHABLE_KEY="$SUPABASE_PUBLISHABLE_KEY"
+          cp build/app/outputs/flutter-apk/app-release.apk vagas-globais.apk
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: vagas-globais-apk
+          path: app/vagas-globais.apk
+          retention-days: 14
