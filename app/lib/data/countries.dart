@@ -1,4 +1,4 @@
-/// Nomes em português e bandeiras dos países que aparecem nas vagas.
+// Nomes em português e bandeiras dos países que aparecem nas vagas.
 
 const _names = {
   'AR': 'Argentina', 'AT': 'Áustria', 'AU': 'Austrália', 'BE': 'Bélgica', 'BO': 'Bolívia', 'BR': 'Brasil',
