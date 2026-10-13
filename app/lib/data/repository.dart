@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import 'countries.dart';
 import 'geo.dart';
 import 'models.dart';
 
@@ -15,18 +16,50 @@ final feedFilterProvider = StateProvider<Eligibility?>((_) => null);
 /// País do IP do celular, detectado uma vez por sessão do app.
 final countryProvider = FutureProvider<String?>((_) => detectCountry());
 
-/// Feed ordenado: vagas do país onde o celular está primeiro, depois as mais recentes.
-final feedProvider = FutureProvider.autoDispose<List<JobMatch>>((ref) async {
+/// Feed agrupado por país: o país do IP primeiro, depois as vagas remotas sem país,
+/// depois os demais países em ordem alfabética. Cada grupo traz só as de maior match.
+final feedProvider = FutureProvider.autoDispose<List<CountryGroup>>((ref) async {
   final jobs = await ref.watch(repositoryProvider).feed(ref.watch(feedFilterProvider));
   final country = await ref.watch(countryProvider.future);
-  return sortFeed(jobs, country);
+  return groupFeed(jobs, country);
 });
 
-List<JobMatch> sortFeed(List<JobMatch> jobs, String? country) {
-  int local(JobMatch j) => country != null && j.country?.toUpperCase() == country ? 0 : 1;
-  return [...jobs]..sort((a, b) {
-      final byCountry = local(a).compareTo(local(b));
-      return byCountry != 0 ? byCountry : b.dateRank.compareTo(a.dateRank);
+const topPerCountry = 5;
+
+class CountryGroup {
+  CountryGroup({required this.code, required this.jobs, required this.isLocal});
+
+  /// Código ISO do país; nulo = vagas remotas sem país definido.
+  final String? code;
+  final List<JobMatch> jobs; // todas, da maior para a menor aderência
+  final bool isLocal; // é o país de onde o celular está acessando
+
+  String get name => code == null ? 'Remoto internacional' : countryName(code!);
+  String get flag => code == null ? '🌎' : countryFlag(code!);
+  List<JobMatch> get top => jobs.take(topPerCountry).toList();
+  int get hidden => jobs.length - top.length;
+}
+
+List<CountryGroup> groupFeed(List<JobMatch> jobs, String? ipCountry) {
+  final byCode = <String?, List<JobMatch>>{};
+  for (final j in jobs) {
+    byCode.putIfAbsent(j.country?.toUpperCase(), () => []).add(j);
+  }
+  // Dentro do país: maior match primeiro (sem match calculado vai para o fim), empate pela mais recente
+  int byMatch(JobMatch a, JobMatch b) {
+    final m = (b.matchPct ?? -1).compareTo(a.matchPct ?? -1);
+    return m != 0 ? m : b.dateRank.compareTo(a.dateRank);
+  }
+
+  final groups = [
+    for (final e in byCode.entries)
+      CountryGroup(code: e.key, jobs: e.value..sort(byMatch), isLocal: e.key != null && e.key == ipCountry),
+  ];
+  int rank(CountryGroup g) => g.isLocal ? 0 : (g.code == null ? 1 : 2);
+  return groups
+    ..sort((a, b) {
+      final r = rank(a).compareTo(rank(b));
+      return r != 0 ? r : sortKey(a.name).compareTo(sortKey(b.name));
     });
 }
 

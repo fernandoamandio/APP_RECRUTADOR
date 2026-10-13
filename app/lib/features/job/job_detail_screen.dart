@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../data/countries.dart';
 import '../../data/models.dart';
 import '../../data/repository.dart';
 import '../../theme.dart';
@@ -82,7 +83,8 @@ class JobDetailScreen extends ConsumerWidget {
           children: [
             Text(job.title, style: t.headlineMedium),
             const SizedBox(height: 4),
-            Text('${job.company} · ${job.location}', style: const TextStyle(color: AppColors.quiet)),
+            Text('${job.country != null ? '${countryFlag(job.country!)} ' : '🌎 '}${job.company} · ${job.location}',
+                style: const TextStyle(color: AppColors.quiet)),
             const SizedBox(height: 12),
             Text(relativeDate(job.publishedAt), style: const TextStyle(fontSize: 12, color: AppColors.quiet)),
             const SizedBox(height: 12),

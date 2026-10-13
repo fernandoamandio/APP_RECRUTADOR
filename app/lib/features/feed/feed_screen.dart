@@ -17,7 +17,6 @@ class FeedScreen extends ConsumerWidget {
     final t = Theme.of(context).textTheme;
     final filter = ref.watch(feedFilterProvider);
     final feed = ref.watch(feedProvider);
-    final country = ref.watch(countryProvider).valueOrNull;
 
     Widget chip(String label, Eligibility? value) => ChoiceChip(
           label: Text(label),
@@ -32,16 +31,12 @@ class FeedScreen extends ConsumerWidget {
           child: ListView(
             padding: const EdgeInsets.fromLTRB(20, 24, 20, 24),
             children: [
-              Text(
-                feed.maybeWhen(data: (l) => '${l.length} vagas para você', orElse: () => 'Vagas para você'),
-                style: t.headlineMedium,
+              Text('Melhores vagas por país', style: t.headlineMedium),
+              const Padding(
+                padding: EdgeInsets.only(top: 4),
+                child: Text('As $topPerCountry de maior match em cada país, com o seu país primeiro',
+                    style: TextStyle(fontSize: 13, color: AppColors.quiet)),
               ),
-              if (country != null)
-                Padding(
-                  padding: const EdgeInsets.only(top: 4),
-                  child: Text('Vagas do seu país ($country) primeiro, depois as mais recentes',
-                      style: const TextStyle(fontSize: 13, color: AppColors.quiet)),
-                ),
               const SizedBox(height: 12),
               Wrap(spacing: 8, runSpacing: 4, children: [
                 chip('Todas', null),
@@ -50,19 +45,13 @@ class FeedScreen extends ConsumerWidget {
                 chip('Visto', Eligibility.visaSponsor),
                 chip('Vale perguntar', Eligibility.uncertain),
               ]),
-              const SizedBox(height: 16),
+              const SizedBox(height: 8),
               ...feed.when(
                 loading: () => [const Padding(padding: EdgeInsets.all(48), child: Center(child: CircularProgressIndicator()))],
                 error: (e, _) => [Text('Não foi possível carregar o feed: $e')],
-                data: (jobs) => jobs.isEmpty
+                data: (groups) => groups.isEmpty
                     ? [const Text('Nenhuma vaga ainda. A busca roda a cada 6 horas; volte mais tarde.')]
-                    : [
-                        for (final j in jobs)
-                          Padding(
-                            padding: const EdgeInsets.only(bottom: 12),
-                            child: _JobCard(j, isLocal: country != null && j.country?.toUpperCase() == country),
-                          ),
-                      ],
+                    : [for (final g in groups) _CountrySection(g)],
               ),
             ],
           ),
@@ -80,10 +69,43 @@ class FeedScreen extends ConsumerWidget {
   }
 }
 
+class _CountrySection extends StatelessWidget {
+  const _CountrySection(this.group);
+  final CountryGroup group;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Padding(
+        padding: const EdgeInsets.fromLTRB(0, 20, 0, 10),
+        child: Semantics(
+          header: true,
+          child: Row(children: [
+            ExcludeSemantics(child: Text(group.flag, style: const TextStyle(fontSize: 24))),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(group.name, style: Theme.of(context).textTheme.headlineSmall),
+            ),
+            if (group.isLocal)
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(color: AppColors.ink, borderRadius: BorderRadius.circular(8)),
+                child: const Text('Seu país', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Colors.white)),
+              ),
+          ]),
+        ),
+      ),
+      for (final j in group.top) Padding(padding: const EdgeInsets.only(bottom: 12), child: _JobCard(j)),
+      if (group.hidden > 0)
+        Text('+ ${group.hidden} ${group.hidden == 1 ? 'vaga' : 'vagas'} com match menor em ${group.name}',
+            style: const TextStyle(fontSize: 12, color: AppColors.quiet)),
+    ]);
+  }
+}
+
 class _JobCard extends StatelessWidget {
-  const _JobCard(this.job, {required this.isLocal});
+  const _JobCard(this.job);
   final JobMatch job;
-  final bool isLocal;
 
   @override
   Widget build(BuildContext context) {
@@ -101,11 +123,7 @@ class _JobCard extends StatelessWidget {
                   Text(job.title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
                   Text('${job.company} · ${job.location}', style: const TextStyle(color: AppColors.quiet)),
                   const SizedBox(height: 2),
-                  Text(
-                    '${isLocal ? 'No seu país · ' : ''}${relativeDate(job.publishedAt)}',
-                    style: TextStyle(fontSize: 12, color: AppColors.quiet,
-                        fontWeight: isLocal ? FontWeight.w700 : FontWeight.w400),
-                  ),
+                  Text(relativeDate(job.publishedAt), style: const TextStyle(fontSize: 12, color: AppColors.quiet)),
                 ]),
               ),
               const SizedBox(width: 12),
