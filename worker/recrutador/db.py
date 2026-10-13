@@ -17,9 +17,16 @@ class Database:
 
     def confirmed_profiles(self) -> list[dict]:
         """Usuários com perfil profissional revisado e consentimento de IA."""
-        rows = (self.sb.table("career_profile").select("*, profiles!inner(modality, consent_ai_at)")
-                .not_.is_("confirmed_at", "null").execute().data)
-        return [r for r in rows if r["profiles"]["consent_ai_at"]]
+        # career_profile e profiles apontam ambas para auth.users (não uma para a outra),
+        # então o PostgREST não consegue juntá-las numa consulta só: buscamos em duas.
+        rows = self.sb.table("career_profile").select("*").not_.is_("confirmed_at", "null").execute().data
+        if not rows:
+            return []
+        consented = {
+            p["user_id"] for p in self.sb.table("profiles").select("user_id")
+            .in_("user_id", [r["user_id"] for r in rows]).not_.is_("consent_ai_at", "null").execute().data
+        }
+        return [r for r in rows if r["user_id"] in consented]
 
     @staticmethod
     def to_career_profile(row: dict) -> CareerProfile:
