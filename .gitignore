@@ -1,0 +1,26 @@
+# Secrets
+.env
+*.env.local
+supabase/.temp/
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+*.egg-info/
+build/
+dist/
+
+# Flutter / Dart
+app/.dart_tool/
+app/.flutter-plugins
+app/.flutter-plugins-dependencies
+app/build/
+app/.packages
+app/pubspec.lock
+
+# IDE / OS
+.idea/
+.vscode/
+.DS_Store

@@ -1,0 +1,24 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "recrutador-worker"
+version = "0.1.0"
+description = "Worker de coleta, triagem e pontuação de vagas do App de Vagas Globais"
+requires-python = ">=3.11"
+dependencies = [
+  "anthropic>=0.40",
+  "httpx>=0.27",
+  "supabase>=2.4",
+  "python-dotenv>=1.0",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8", "respx>=0.21"]
+
+[tool.setuptools.packages.find]
+include = ["recrutador*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

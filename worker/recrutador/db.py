@@ -1,0 +1,121 @@
+"""Acesso ao Supabase com a service role (só no worker)."""
+
+from __future__ import annotations
+
+from datetime import datetime, timezone
+
+from supabase import Client, create_client
+
+from .models import CareerProfile, Household, RawJob, TriageResult
+
+
+class Database:
+    def __init__(self, url: str, service_key: str):
+        self.sb: Client = create_client(url, service_key)
+
+    # ---------- usuários ----------
+
+    def confirmed_profiles(self) -> list[dict]:
+        """Usuários com perfil profissional revisado e consentimento de IA."""
+        rows = (self.sb.table("career_profile").select("*, profiles!inner(modality, consent_ai_at)")
+                .not_.is_("confirmed_at", "null").execute().data)
+        return [r for r in rows if r["profiles"]["consent_ai_at"]]
+
+    @staticmethod
+    def to_career_profile(row: dict) -> CareerProfile:
+        kw = row.get("keywords") or {}
+        return CareerProfile(target_titles=row["target_titles"], stack=row["stack"], seniority=row.get("seniority"),
+                             search_terms=kw.get("search_terms", []), remoteok_tags=kw.get("remoteok_tags", []))
+
+    def household(self, user_id: str) -> Household:
+        rows = self.sb.table("household").select("*").eq("user_id", user_id).execute().data
+        if not rows:
+            return Household()  # padrão: pessoa sozinha
+        r = rows[0]
+        return Household(married=r.get("marital_status") == "married", children_ages=r.get("children_ages") or [])
+
+    def salary_prefs(self, user_id: str) -> dict[tuple[str, str], dict]:
+        rows = self.sb.table("salary_prefs").select("*").eq("user_id", user_id).execute().data
+        return {(r["country"], r["modality"]): r for r in rows}
+
+    def learned_prefs(self, user_id: str) -> dict[str, float]:
+        rows = self.sb.table("learned_prefs").select("key, value").eq("user_id", user_id).execute().data
+        return {r["key"]: float(r["value"]) for r in rows if isinstance(r["value"], (int, float))}
+
+    def feedback_with_jobs(self, user_id: str) -> list[dict]:
+        return (self.sb.table("feedback_events").select("kind, reason, value, jobs(company, country)")
+                .eq("user_id", user_id).order("created_at").execute().data)
+
+    def save_learned(self, user_id: str, prefs: dict[str, float]) -> None:
+        if prefs:
+            self.sb.table("learned_prefs").upsert(
+                [{"user_id": user_id, "key": k, "value": v} for k, v in prefs.items()],
+                on_conflict="user_id,key",
+            ).execute()
+
+    # ---------- vagas ----------
+
+    def known_hashes(self, hashes: list[str]) -> dict[str, str]:
+        """dedup_hash -> job_id das vagas já existentes."""
+        out: dict[str, str] = {}
+        for i in range(0, len(hashes), 200):
+            rows = self.sb.table("jobs").select("id, dedup_hash").in_("dedup_hash", hashes[i:i + 200]).execute().data
+            out.update({r["dedup_hash"]: r["id"] for r in rows})
+        return out
+
+    def upsert_job(self, h: str, job: RawJob, sources: list[RawJob]) -> str:
+        row = {
+            "dedup_hash": h, "title": job.title, "company": job.company, "country": job.country,
+            "city": job.city, "is_remote": job.is_remote, "salary_min": job.salary_min,
+            "salary_max": job.salary_max, "salary_period": job.salary_period, "currency": job.currency,
+            "description": job.description, "last_seen_at": datetime.now(timezone.utc).isoformat(),
+            "published_at": job.published_at.isoformat() if job.published_at else None,
+        }
+        job_id = self.sb.table("jobs").upsert(row, on_conflict="dedup_hash").execute().data[0]["id"]
+        self.sb.table("job_sources").upsert(
+            [{"job_id": job_id, "source": s.source, "external_id": s.external_id, "url": s.url} for s in sources],
+            on_conflict="source,external_id",
+        ).execute()
+        return job_id
+
+    def eligibility(self, job_ids: list[str]) -> dict[str, dict]:
+        out: dict[str, dict] = {}
+        for i in range(0, len(job_ids), 200):
+            rows = self.sb.table("job_eligibility").select("*").in_("job_id", job_ids[i:i + 200]).execute().data
+            out.update({r["job_id"]: r for r in rows})
+        return out
+
+    def save_eligibility(self, job_id: str, t: TriageResult) -> None:
+        self.sb.table("job_eligibility").upsert({
+            "job_id": job_id, "category": t.category.value, "evidence": t.evidence,
+            "confidence": round(t.confidence, 2), "sponsor_registered": t.sponsor_registered, "model": t.model,
+        }).execute()
+
+    def save_match(self, user_id: str, job_id: str, score: int, reasons: list[str], salary: dict | None) -> None:
+        # ignore_duplicates: não sobrescreve o status que o usuário já deu à vaga
+        self.sb.table("job_matches").upsert({
+            "user_id": user_id, "job_id": job_id, "score": score, "reasons": reasons, "salary_suggested": salary,
+        }, on_conflict="user_id,job_id", ignore_duplicates=True).execute()
+
+    # ---------- referências ----------
+
+    def cost_items(self, country: str, city: str | None) -> dict[str, float]:
+        rows = (self.sb.table("cost_of_living").select("city, item, monthly")
+                .eq("country", country).in_("city", [city or "", ""]).execute().data)
+        # o valor da cidade tem prioridade sobre a média do país
+        items: dict[str, float] = {}
+        for r in sorted(rows, key=lambda r: r["city"] != ""):
+            items[r["item"]] = float(r["monthly"])
+        return items
+
+    def tax_rate(self, country: str, annual: float) -> float | None:
+        rows = (self.sb.table("tax_rates").select("annual_from, effective_rate").eq("country", country)
+                .lte("annual_from", annual).order("annual_from", desc=True).limit(1).execute().data)
+        return float(rows[0]["effective_rate"]) if rows else None
+
+    def sponsor_registry(self) -> dict[str, set[str]]:
+        rows = self.sb.table("sponsor_registry").select("country, company_normalized").execute().data
+        out: dict[str, set[str]] = {}
+        for r in rows:
+            out.setdefault(r["country"], set()).add(r["company_normalized"])
+        return out
