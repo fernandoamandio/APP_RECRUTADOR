@@ -140,6 +140,27 @@ class JobDetailScreen extends ConsumerWidget {
                 },
                 child: Text('Ver vaga no ${src.label}'),
               ),
+            const SizedBox(height: 10),
+            // Sites do Adzuna de outros países bloqueiam acessos do Brasil; a busca acha a vaga
+            // na página de carreiras da empresa, onde a candidatura acontece de qualquer forma.
+            OutlinedButton.icon(
+              icon: const Icon(Icons.search),
+              label: const Text('Procurar no site da empresa'),
+              onPressed: () async {
+                final q = Uri.encodeQueryComponent('"${job.title}" ${job.company} careers');
+                await launchUrl(Uri.parse('https://www.google.com/search?q=$q'),
+                    mode: LaunchMode.externalApplication);
+              },
+            ),
+            if (job.sources.any((s) => s.source == 'adzuna'))
+              const Padding(
+                padding: EdgeInsets.only(top: 8),
+                child: Text(
+                  'Se o Adzuna disser que a vaga não está disponível na sua região, use a busca acima: '
+                  'o site deles bloqueia acessos de fora do país da vaga.',
+                  style: TextStyle(fontSize: 12, color: AppColors.quiet),
+                ),
+              ),
           ],
         ),
       ),
