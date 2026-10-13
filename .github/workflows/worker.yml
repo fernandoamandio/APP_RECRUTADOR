@@ -22,7 +22,15 @@ jobs:
         with:
           python-version: "3.12"
       - run: pip install -e .
-      - run: python -m recrutador.main
+      # Em caso de falha, as últimas linhas viram anotações (o GitHub mascara os secrets automaticamente)
+      - name: Rodar o worker
+        run: |
+          set -o pipefail
+          python -m recrutador.main 2>&1 | tee out.txt || {
+            tail -n 8 out.txt | sed 's/^/::error::/'
+            exit 1
+          }
+          grep -E "vagas|nenhum usuário" out.txt | sed 's/^/::notice::/' || true
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
