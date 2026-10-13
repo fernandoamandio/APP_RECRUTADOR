@@ -34,7 +34,7 @@ jobs:
       - name: flutter analyze
         run: |
           set +e
-          flutter analyze --no-fatal-infos --format=machine > analyze.txt 2>&1
+          dart analyze --format=machine > analyze.txt 2>&1
           status=$?
           awk -F'|' 'NF>=8 {lvl=tolower($1); if (lvl=="info") lvl="notice"; printf "::%s file=app/%s,line=%s,col=%s::%s (%s)\n", lvl, substr($4, index($4,"lib/")), $5, $6, $8, $3}' analyze.txt
           grep -v '|' analyze.txt || true
