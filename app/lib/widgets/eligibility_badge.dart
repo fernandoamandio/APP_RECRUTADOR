@@ -18,6 +18,7 @@ class EligibilityBadge extends StatelessWidget {
   Widget build(BuildContext context) {
     final pills = <Widget>[
       switch (eligibility) {
+        Eligibility.localBr => _pill('Vaga no Brasil', const Color(0xFF14532D), const Color(0xFFDCFCE7)),
         Eligibility.remoteBr => _pill('Remoto do Brasil', const Color(0xFF1E3A8A), AppColors.remoteTint),
         Eligibility.visaSponsor => _pill('Patrocina visto', AppColors.visa, AppColors.visaTint),
         Eligibility.uncertain => _pill('Vale perguntar ao recrutador', AppColors.quiet, const Color(0xFFF0F1EC)),

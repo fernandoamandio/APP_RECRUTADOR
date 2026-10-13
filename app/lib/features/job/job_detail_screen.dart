@@ -6,6 +6,7 @@ import '../../data/models.dart';
 import '../../data/repository.dart';
 import '../../theme.dart';
 import '../../widgets/eligibility_badge.dart';
+import '../../widgets/match_badge.dart';
 import '../../widgets/money.dart';
 
 class JobDetailScreen extends ConsumerWidget {
@@ -83,26 +84,14 @@ class JobDetailScreen extends ConsumerWidget {
             const SizedBox(height: 4),
             Text('${job.company} · ${job.location}', style: const TextStyle(color: AppColors.quiet)),
             const SizedBox(height: 12),
-            Row(children: [
-              EligibilityBadge(job.eligibility, sponsorRegistered: job.sponsorRegistered),
-              const Spacer(),
-              Text('Aderência ${job.score}', style: const TextStyle(fontWeight: FontWeight.w700)),
-            ]),
+            Text(relativeDate(job.publishedAt), style: const TextStyle(fontSize: 12, color: AppColors.quiet)),
+            const SizedBox(height: 12),
+            EligibilityBadge(job.eligibility, sponsorRegistered: job.sponsorRegistered),
+            const SizedBox(height: 12),
+            _MatchCard(job),
             if (job.evidence != null && job.evidence!.isNotEmpty) ...[
               const SizedBox(height: 12),
               _EvidenceCard(job),
-            ],
-            if (job.reasons.isNotEmpty) ...[
-              const SizedBox(height: 12),
-              for (final r in job.reasons)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 4),
-                  child: Row(children: [
-                    const Icon(Icons.check, size: 18, color: AppColors.remote),
-                    const SizedBox(width: 8),
-                    Expanded(child: Text(r)),
-                  ]),
-                ),
             ],
             const SizedBox(height: 12),
             if (job.salary != null)
@@ -163,6 +152,53 @@ class JobDetailScreen extends ConsumerWidget {
               ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// Comparação do currículo + cover letter com a vaga: percentual, o que atende e o que falta.
+class _MatchCard extends StatelessWidget {
+  const _MatchCard(this.job);
+  final JobMatch job;
+
+  @override
+  Widget build(BuildContext context) {
+    Widget item(IconData icon, Color color, String text) => Padding(
+          padding: const EdgeInsets.only(top: 6),
+          child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Icon(icon, size: 18, color: color),
+            const SizedBox(width: 8),
+            Expanded(child: Text(text)),
+          ]),
+        );
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Row(children: [
+            MatchBadge(job.matchPct, large: true),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Text(
+                job.matchPct == null
+                    ? 'Comparando seu currículo e cover letter com esta vaga. O resultado aparece na próxima atualização.'
+                    : 'Comparação do seu currículo e cover letter com os requisitos da vaga',
+                style: const TextStyle(fontSize: 13, color: AppColors.quiet),
+              ),
+            ),
+          ]),
+          if (job.matchStrengths.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            const Text('Você atende', style: TextStyle(fontWeight: FontWeight.w700)),
+            for (final s in job.matchStrengths) item(Icons.check_circle_outline, const Color(0xFF15803D), s),
+          ],
+          if (job.matchGaps.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            const Text('Falta demonstrar', style: TextStyle(fontWeight: FontWeight.w700)),
+            for (final g in job.matchGaps) item(Icons.radio_button_unchecked, AppColors.visa, g),
+          ],
+        ]),
       ),
     );
   }

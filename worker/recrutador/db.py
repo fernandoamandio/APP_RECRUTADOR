@@ -49,6 +49,44 @@ class Database:
         rows = self.sb.table("learned_prefs").select("key, value").eq("user_id", user_id).execute().data
         return {r["key"]: float(r["value"]) for r in rows if isinstance(r["value"], (int, float))}
 
+    def latest_documents(self, user_id: str) -> dict[str, bytes]:
+        """Baixa a versão mais recente do currículo e da cover letter do usuário ({kind: bytes})."""
+        rows = (self.sb.table("documents").select("kind, storage_path, created_at").eq("user_id", user_id)
+                .order("created_at", desc=True).execute().data)
+        out: dict[str, bytes] = {}
+        for r in rows:
+            if r["kind"] in out:
+                continue
+            try:
+                out[r["kind"]] = self.sb.storage.from_("documents").download(r["storage_path"])
+            except Exception:  # documento apagado do Storage: segue sem ele
+                continue
+        return out
+
+    def pending_matches(self, user_id: str, limit: int) -> list[str]:
+        """Vagas do feed ainda sem match calculado, as de maior nota primeiro."""
+        rows = (self.sb.table("job_matches").select("job_id").eq("user_id", user_id).is_("matched_at", "null")
+                .in_("status", ["new", "seen", "saved"]).order("score", desc=True).limit(limit).execute().data)
+        return [r["job_id"] for r in rows]
+
+    def job_for_match(self, job_id: str) -> RawJob | None:
+        rows = self.sb.table("jobs").select("title, company, country, city, description").eq("id", job_id).execute().data
+        if not rows:
+            return None
+        r = rows[0]
+        return RawJob(source="db", external_id=job_id, url="", title=r["title"], company=r["company"],
+                      country=r.get("country"), city=r.get("city"), description=r.get("description") or "")
+
+    def save_match_result(self, user_id: str, job_id: str, pct: int, strengths: list[str], gaps: list[str]) -> None:
+        self.sb.table("job_matches").update({
+            "match_pct": pct, "match_strengths": strengths, "match_gaps": gaps,
+            "matched_at": datetime.now(timezone.utc).isoformat(),
+        }).eq("user_id", user_id).eq("job_id", job_id).execute()
+
+    def reset_matches(self, user_id: str) -> None:
+        """Novo currículo ou cover letter: o match de todas as vagas precisa ser refeito."""
+        self.sb.table("job_matches").update({"matched_at": None}).eq("user_id", user_id).execute()
+
     def feedback_with_jobs(self, user_id: str) -> list[dict]:
         return (self.sb.table("feedback_events").select("kind, reason, value, jobs(company, country)")
                 .eq("user_id", user_id).order("created_at").execute().data)

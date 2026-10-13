@@ -31,6 +31,7 @@ def prefilter(job: RawJob) -> tuple[bool, str | None]:
     text = f"{job.title}\n{job.description}"
     if m := _BLOCK_RE.search(text):
         return False, f"restrição: {m.group(0)}"
-    if job.is_remote is False and (m := _NOSPONSOR_RE.search(text)):
+    # Vaga no Brasil não depende de patrocínio de visto para quem mora aqui
+    if job.is_remote is False and job.country != "BR" and (m := _NOSPONSOR_RE.search(text)):
         return False, f"sem patrocínio: {m.group(0)}"
     return True, None

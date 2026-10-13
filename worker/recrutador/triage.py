@@ -26,7 +26,8 @@ TRIAGE_TOOL = {
                 "type": "string",
                 "enum": [e.value for e in Eligibility],
                 "description": (
-                    "remote_br: remota e aceita Brasil, LATAM, 'anywhere' ou contractor internacional; "
+                    "local_br: vaga de empresa localizada no Brasil (presencial, híbrida ou remota dentro do país); "
+                    "remote_br: remota para empresa estrangeira e aceita Brasil, LATAM, 'anywhere' ou contractor internacional; "
                     "visa_sponsor: presencial/híbrida com patrocínio de visto ou relocation oferecidos; "
                     "uncertain: remota sem restrição clara de país, ou patrocínio não mencionado; "
                     "not_eligible: restrição de país, cidadania, fuso inviável ou 'no sponsorship'."
@@ -59,6 +60,12 @@ def _job_prompt(job: RawJob) -> str:
 
 
 def triage(client: anthropic.Anthropic, model: str, job: RawJob, sponsors: SponsorRegistry) -> TriageResult:
+    # Vaga que a fonte já localiza no Brasil: elegível sem gastar uma chamada de IA
+    if job.country == "BR":
+        location = job.city or "Brasil"
+        return TriageResult(category=Eligibility.LOCAL_BR, evidence=f"Vaga localizada no Brasil ({location})",
+                            confidence=1.0, model="rule:country=BR")
+
     registered = sponsors.is_registered(job.company, job.country)
     msg = client.messages.create(
         model=model,

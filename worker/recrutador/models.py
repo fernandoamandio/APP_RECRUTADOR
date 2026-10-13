@@ -6,6 +6,7 @@ from enum import Enum
 
 
 class Eligibility(str, Enum):
+    LOCAL_BR = "local_br"  # vaga localizada no Brasil
     REMOTE_BR = "remote_br"
     VISA_SPONSOR = "visa_sponsor"
     UNCERTAIN = "uncertain"

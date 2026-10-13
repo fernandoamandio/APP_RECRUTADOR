@@ -53,7 +53,8 @@ def score(job: RawJob, profile: CareerProfile, eligibility: Eligibility,
         points += 5  # título sem senioridade explícita
 
     # Elegibilidade: até 10
-    points += {Eligibility.REMOTE_BR: 10, Eligibility.VISA_SPONSOR: 10, Eligibility.UNCERTAIN: 3}.get(eligibility, 0)
+    points += {Eligibility.LOCAL_BR: 10, Eligibility.REMOTE_BR: 10, Eligibility.VISA_SPONSOR: 10,
+               Eligibility.UNCERTAIN: 3}.get(eligibility, 0)
 
     # Ajustes aprendidos (pesos em pontos, positivos ou negativos)
     points += learned.get(f"company:{normalize_company(job.company)}", 0)

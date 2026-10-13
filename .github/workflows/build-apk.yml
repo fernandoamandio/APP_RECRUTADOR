@@ -1,11 +1,8 @@
 name: Gerar APK (Android)
 
-# Roda manualmente pela aba Actions ("Run workflow") ou quando o app muda.
+# Só roda manualmente, pela aba Actions ("Run workflow"): você decide quando gerar um APK novo.
 on:
   workflow_dispatch: {}
-  push:
-    branches: [main]
-    paths: ["app/**", ".github/workflows/build-apk.yml"]
 
 jobs:
   apk:

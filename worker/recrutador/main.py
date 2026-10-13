@@ -1,4 +1,4 @@
-"""Uma rodada do worker: coleta → deduplicação → pré-filtro → triagem → pontuação → salário.
+"""Uma rodada do worker: coleta → deduplicação → pré-filtro → triagem → pontuação → salário → match.
 
 Uso:  python -m recrutador.main
 Agendado pelo GitHub Actions (.github/workflows/worker.yml) a cada 6 horas.
@@ -17,6 +17,7 @@ from dotenv import load_dotenv
 from .db import Database
 from .dedup import deduplicate, merge
 from .learning import apply_event
+from .matching import CandidateMaterial, match, profile_as_text
 from .models import Eligibility, RawJob
 from .prefilter import prefilter
 from .salary import market_from_histogram, suggest_relocation, suggest_remote, family_monthly_cost
@@ -33,6 +34,7 @@ log = logging.getLogger("recrutador")
 MIN_SCORE = 50              # abaixo disso a vaga não entra no feed
 MAX_TRIAGE_PER_RUN = 300    # teto de custo de IA por rodada
 MAX_SEARCH_TERMS = 8
+MAX_MATCH_PER_USER = 60     # vagas com match calculado por usuário a cada rodada
 
 
 def build_sources(client: httpx.Client) -> tuple[list[JobSource], AdzunaSource | None]:
@@ -46,7 +48,7 @@ def build_sources(client: httpx.Client) -> tuple[list[JobSource], AdzunaSource |
         sources.append(InfoJobsSource(client, os.environ["INFOJOBS_CLIENT_ID"], os.environ["INFOJOBS_CLIENT_SECRET"]))
     adzuna = None
     if os.getenv("ADZUNA_APP_ID") and os.getenv("ADZUNA_APP_KEY"):
-        countries = os.getenv("ADZUNA_COUNTRIES", "gb,nl,de,us,ca").split(",")
+        countries = os.getenv("ADZUNA_COUNTRIES", "br,gb,nl,de,us,ca").split(",")
         adzuna = AdzunaSource(client, os.environ["ADZUNA_APP_ID"], os.environ["ADZUNA_APP_KEY"], countries)
         sources.append(adzuna)
     if os.getenv("JOOBLE_API_KEY"):
@@ -61,6 +63,7 @@ def run() -> None:
     db = Database(os.environ["SUPABASE_URL"], os.environ["SUPABASE_SERVICE_ROLE_KEY"])
     claude = anthropic.Anthropic()
     triage_model = os.getenv("CLAUDE_TRIAGE_MODEL", "claude-haiku-5-5")
+    match_model = os.getenv("CLAUDE_MATCH_MODEL", "claude-haiku-5-5")
     contact = os.getenv("CONTACT_EMAIL", "")
     http = httpx.Client(timeout=30, headers={"User-Agent": f"recrutador-worker/0.1 ({contact})"})
 
@@ -144,6 +147,33 @@ def run() -> None:
             db.save_match(uid, job_id, s, reasons, salary)
             saved += 1
         log.info("usuário %s: %d vagas no feed", uid[:8], saved)
+
+        # 6. Match do currículo + cover letter com as vagas do feed (as de maior nota primeiro)
+        matched = run_matching(db, claude, match_model, uid, user)
+        log.info("usuário %s: %d vagas com match calculado", uid[:8], matched)
+
+
+def run_matching(db: Database, claude: anthropic.Anthropic, model: str, uid: str, profile_row: dict) -> int:
+    pending = db.pending_matches(uid, MAX_MATCH_PER_USER)
+    if not pending:
+        return 0
+    docs = db.latest_documents(uid)
+    candidate = CandidateMaterial(cv_pdf=docs.get("cv"), cover_letter_pdf=docs.get("cover_letter"),
+                                  profile_text=profile_as_text(profile_row))
+    log.info("usuário %s: match usando %s", uid[:8], candidate.source)
+    done = 0
+    for job_id in pending:
+        job = db.job_for_match(job_id)
+        if not job:
+            continue
+        try:
+            result = match(claude, model, candidate, job)
+        except anthropic.APIError as exc:
+            log.warning("match falhou para %s: %s", job_id, exc)
+            continue
+        db.save_match_result(uid, job_id, result.percent, result.strengths, result.gaps)
+        done += 1
+    return done
 
 
 def relearn(db: Database, uid: str) -> dict[str, float]:

@@ -14,8 +14,8 @@ class JoobleSource(JobSource):
     def __init__(self, client: httpx.Client, api_key: str, locations: list[str] | None = None):
         super().__init__(client)
         self.api_key = api_key
-        # "" = sem filtro de local; "remote" ajuda a achar vagas remotas
-        self.locations = locations or ["remote", ""]
+        # "" = sem filtro de local; "remote" ajuda a achar vagas remotas; "Brasil" traz as nacionais
+        self.locations = locations or ["remote", "", "Brasil"]
 
     def fetch(self, search_terms: list[str], tags: list[str]) -> list[RawJob]:
         jobs: list[RawJob] = []
@@ -24,11 +24,11 @@ class JoobleSource(JobSource):
                 resp = self.client.post(f"https://jooble.org/api/{self.api_key}",
                                         json={"keywords": term, "location": location, "page": 1})
                 resp.raise_for_status()
-                jobs.extend(self.parse(resp.json()))
+                jobs.extend(self.parse(resp.json(), country="BR" if location == "Brasil" else None))
         return jobs
 
     @staticmethod
-    def parse(payload: dict) -> list[RawJob]:
+    def parse(payload: dict, country: str | None = None) -> list[RawJob]:
         out = []
         for j in payload.get("jobs", []):
             link = j.get("link", "")
@@ -42,6 +42,7 @@ class JoobleSource(JobSource):
                 company=(j.get("company") or "").strip(),
                 description=strip_html(j.get("snippet")),
                 city=location or None,
+                country=country,
                 is_remote=True if "remote" in location.lower() else None,
             ))
         return out

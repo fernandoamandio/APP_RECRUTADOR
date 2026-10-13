@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import 'geo.dart';
 import 'models.dart';
 
 final supabaseProvider = Provider<SupabaseClient>((_) => Supabase.instance.client);
@@ -11,9 +12,23 @@ final repositoryProvider = Provider((ref) => Repository(ref.watch(supabaseProvid
 /// Filtro do feed: null = todas.
 final feedFilterProvider = StateProvider<Eligibility?>((_) => null);
 
-final feedProvider = FutureProvider.autoDispose<List<JobMatch>>((ref) {
-  return ref.watch(repositoryProvider).feed(ref.watch(feedFilterProvider));
+/// País do IP do celular, detectado uma vez por sessão do app.
+final countryProvider = FutureProvider<String?>((_) => detectCountry());
+
+/// Feed ordenado: vagas do país onde o celular está primeiro, depois as mais recentes.
+final feedProvider = FutureProvider.autoDispose<List<JobMatch>>((ref) async {
+  final jobs = await ref.watch(repositoryProvider).feed(ref.watch(feedFilterProvider));
+  final country = await ref.watch(countryProvider.future);
+  return sortFeed(jobs, country);
 });
+
+List<JobMatch> sortFeed(List<JobMatch> jobs, String? country) {
+  int local(JobMatch j) => country != null && j.country?.toUpperCase() == country ? 0 : 1;
+  return [...jobs]..sort((a, b) {
+      final byCountry = local(a).compareTo(local(b));
+      return byCountry != 0 ? byCountry : b.dateRank.compareTo(a.dateRank);
+    });
+}
 
 final jobProvider = FutureProvider.autoDispose.family<JobMatch, String>((ref, id) {
   return ref.watch(repositoryProvider).job(id);
@@ -36,6 +51,7 @@ class Repository {
     var q = sb.from('job_matches').select(_matchSelect).eq('user_id', uid).inFilter('status', ['new', 'seen', 'saved']);
     if (filter != null) {
       final value = switch (filter) {
+        Eligibility.localBr => 'local_br',
         Eligibility.remoteBr => 'remote_br',
         Eligibility.visaSponsor => 'visa_sponsor',
         Eligibility.uncertain => 'uncertain',
@@ -43,7 +59,8 @@ class Repository {
       };
       q = q.eq('jobs.job_eligibility.category', value);
     }
-    final rows = await q.order('score', ascending: false).limit(100);
+    // As 200 de maior nota entram; a ordem de exibição (país e data) é feita em sortFeed
+    final rows = await q.order('score', ascending: false).limit(200);
     return rows.map(JobMatch.fromRow).toList();
   }
 
