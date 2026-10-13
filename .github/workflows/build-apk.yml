@@ -59,6 +59,14 @@ jobs:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
 
+      # Confere se o APK é instalável: assinatura, versões do Android e tamanho
+      - name: Verificar APK
+        run: |
+          BT=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)
+          "$BT/apksigner" verify --verbose --print-certs vagas-globais.apk 2>&1 | grep -E "Verified|Signer #1 certificate DN|ERROR|WARNING" | head -6 | sed 's/^/::notice::/'
+          "$BT/aapt2" dump badging vagas-globais.apk | grep -E "^package:|sdkVersion|targetSdkVersion|native-code" | sed 's/^/::notice::/'
+          echo "::notice::tamanho $(stat -c %s vagas-globais.apk) bytes"
+
       - uses: actions/upload-artifact@v4
         with:
           name: vagas-globais-apk
