@@ -21,7 +21,10 @@ from .models import Eligibility, RawJob
 from .prefilter import prefilter
 from .salary import market_from_histogram, suggest_relocation, suggest_remote, family_monthly_cost
 from .scoring import score
-from .sources import AdzunaSource, JobSource, JoobleSource, RemoteOKSource, WeWorkRemotelySource
+from .sources import (
+    AdzunaSource, ArbeitnowSource, GetOnBoardSource, InfoJobsSource, JobSource, JoobleSource,
+    RemoteOKSource, WeWorkRemotelySource, WorkingNomadsSource,
+)
 from .sponsors import SponsorRegistry
 from .triage import triage
 
@@ -33,7 +36,14 @@ MAX_SEARCH_TERMS = 8
 
 
 def build_sources(client: httpx.Client) -> tuple[list[JobSource], AdzunaSource | None]:
-    sources: list[JobSource] = [RemoteOKSource(client), WeWorkRemotelySource(client)]
+    # Fontes sem chave: sempre ativas
+    sources: list[JobSource] = [
+        RemoteOKSource(client), WeWorkRemotelySource(client), WorkingNomadsSource(client),
+        ArbeitnowSource(client), GetOnBoardSource(client),
+    ]
+    # Fontes com chave: só entram quando os secrets existem
+    if os.getenv("INFOJOBS_CLIENT_ID") and os.getenv("INFOJOBS_CLIENT_SECRET"):
+        sources.append(InfoJobsSource(client, os.environ["INFOJOBS_CLIENT_ID"], os.environ["INFOJOBS_CLIENT_SECRET"]))
     adzuna = None
     if os.getenv("ADZUNA_APP_ID") and os.getenv("ADZUNA_APP_KEY"):
         countries = os.getenv("ADZUNA_COUNTRIES", "gb,nl,de,us,ca").split(",")

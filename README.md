@@ -55,6 +55,10 @@ flutter run --dart-define=SUPABASE_URL=https://xxx.supabase.co --dart-define=SUP
 | Jooble | Sim | Chave gratuita |
 | RemoteOK | Sim | Link de volta para a vaga (sem `nofollow`) e citar a fonte |
 | We Work Remotely (RSS) | Sim | Atribuição e link para a vaga |
+| Working Nomads | Sim | Feed público sem chave; atribuição e link para a vaga |
+| Arbeitnow | Sim | API pública sem chave (Europa; filtro de patrocínio de visto) |
+| Get on Board | Sim | API pública sem chave para leitura (tech na América Latina) |
+| InfoJobs | Opcional | Exige aplicação registrada (client_id/client_secret); só vagas 100% remotas |
 | Remotive | **Não** | Termos proíbem uso para captar cadastros |
 | LinkedIn / Indeed | **Não** | Sem API pública de busca |
 

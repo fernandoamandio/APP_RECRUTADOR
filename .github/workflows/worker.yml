@@ -40,4 +40,6 @@ jobs:
           ADZUNA_APP_KEY: ${{ secrets.ADZUNA_APP_KEY }}
           ADZUNA_COUNTRIES: gb,nl,de,us,ca
           JOOBLE_API_KEY: ${{ secrets.JOOBLE_API_KEY }}
+          INFOJOBS_CLIENT_ID: ${{ secrets.INFOJOBS_CLIENT_ID }}
+          INFOJOBS_CLIENT_SECRET: ${{ secrets.INFOJOBS_CLIENT_SECRET }}
           CONTACT_EMAIL: ${{ secrets.CONTACT_EMAIL }}
