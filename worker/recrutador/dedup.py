@@ -40,9 +40,15 @@ def dedup_hash(job: RawJob) -> str:
 def deduplicate(jobs: list[RawJob]) -> dict[str, list[RawJob]]:
     """Agrupa vagas iguais vindas de fontes diferentes. Chave = dedup_hash."""
     groups: dict[str, list[RawJob]] = {}
+    seen: set[tuple[str, str]] = set()
     for job in jobs:
         if not job.title or not job.company:
             continue
+        # A mesma vaga pode voltar da mesma fonte por termos de busca diferentes
+        key = (job.source, job.external_id)
+        if key in seen:
+            continue
+        seen.add(key)
         groups.setdefault(dedup_hash(job), []).append(job)
     return groups
 

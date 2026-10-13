@@ -31,6 +31,13 @@ def test_same_job_from_two_sources_is_merged():
     assert merged.salary_min == 60000
 
 
+def test_same_source_and_id_found_twice_is_kept_once():
+    a = job(source="adzuna", external_id="42", country="GB")
+    b = job(source="adzuna", external_id="42", country="GB")
+    [group] = deduplicate([a, b]).values()
+    assert len(group) == 1
+
+
 def test_different_country_is_a_different_job():
     assert dedup_hash(job(country="GB")) != dedup_hash(job(country="NL"))
 
