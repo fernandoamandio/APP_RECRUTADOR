@@ -1,11 +1,14 @@
 from __future__ import annotations
 
+import logging
 from datetime import datetime
 
 import httpx
 
 from ..models import RawJob
 from .base import JobSource, strip_html
+
+log = logging.getLogger(__name__)
 
 BASE_URL = "https://api.adzuna.com/v1/api/jobs"
 
@@ -34,7 +37,12 @@ class AdzunaSource(JobSource):
                     "what": term, "results_per_page": self.results_per_page,
                     "max_days_old": 14, "content-type": "application/json",
                 })
-                resp.raise_for_status()
+                if resp.status_code == 429:  # cota da API esgotada: as próximas chamadas também falhariam
+                    log.warning("adzuna: cota esgotada (HTTP 429) em %s; parando por esta rodada", country)
+                    return jobs
+                if resp.status_code != 200:  # um país com problema não derruba os outros
+                    log.warning("adzuna %s '%s': HTTP %s %s", country, term, resp.status_code, resp.text[:150])
+                    break
                 jobs.extend(self.parse(resp.json(), country))
         return jobs
 
