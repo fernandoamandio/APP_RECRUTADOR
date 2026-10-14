@@ -17,8 +17,8 @@ final feedFilterProvider = StateProvider<Eligibility?>((_) => null);
 final countryProvider = FutureProvider<String?>((_) => detectCountry());
 
 /// Feed agrupado por país: o país do IP primeiro e os demais em ordem alfabética.
-/// Vagas remotas sem país entram no grupo do país do IP (dá para trabalhar nelas de onde
-/// você está). Cada grupo traz só as de maior match.
+/// Vagas "Remoto do Brasil" sem país entram no grupo do país do IP; as demais sem país
+/// ficam de fora. Cada grupo traz só as de maior match.
 final feedProvider = FutureProvider.autoDispose<List<CountryGroup>>((ref) async {
   final jobs = await ref.watch(repositoryProvider).feed(ref.watch(feedFilterProvider));
   final country = await ref.watch(countryProvider.future);
@@ -44,7 +44,9 @@ class CountryGroup {
 List<CountryGroup> groupFeed(List<JobMatch> jobs, String? ipCountry) {
   final byCode = <String?, List<JobMatch>>{};
   for (final j in jobs) {
-    // Remota sem país → grupo do seu país; se o país do IP for desconhecido, fica num grupo à parte
+    // Sem país definido: só entra (no grupo do seu país) se for remota aceitando o Brasil.
+    // As demais sem país (localização desconhecida) ficam fora para não poluir o grupo do Brasil.
+    if (j.country == null && j.eligibility != Eligibility.remoteBr) continue;
     final code = j.country?.toUpperCase() ?? ipCountry;
     byCode.putIfAbsent(code, () => []).add(j);
   }

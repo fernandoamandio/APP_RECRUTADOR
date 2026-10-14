@@ -16,6 +16,7 @@ from dotenv import load_dotenv
 
 from .db import Database
 from .dedup import deduplicate, merge
+from .geo import infer_country
 from .learning import apply_event
 from .matching import CandidateMaterial, match, profile_as_text
 from .models import Eligibility, RawJob
@@ -85,12 +86,19 @@ def run() -> None:
     jobs: dict[str, tuple[RawJob, list[RawJob]]] = {}
     for h, group in groups.items():
         job = merge(group)
+        if not job.country:  # fontes sem país estruturado: deduz pelo texto da localização
+            job.country = infer_country(job.city)
         ok, reason = prefilter(job)
         if ok:
             jobs[h] = (job, group)
         else:
             log.debug("descartada %s @ %s: %s", job.title, job.company, reason)
     log.info("%d vagas únicas após pré-filtro", len(jobs))
+
+    # Corrige vagas antigas gravadas sem país (antes da dedução pelo texto)
+    fixed = backfill_countries(db)
+    if fixed:
+        log.info("%d vagas antigas ganharam país pela localização", fixed)
 
     # 4. Persistência e triagem (só vagas ainda não classificadas)
     job_ids = {h: db.upsert_job(h, job, group) for h, (job, group) in jobs.items()}
@@ -151,6 +159,16 @@ def run() -> None:
         # 6. Match do currículo + cover letter com as vagas do feed (as de maior nota primeiro)
         matched = run_matching(db, claude, match_model, uid, user)
         log.info("usuário %s: %d vagas com match calculado", uid[:8], matched)
+
+
+def backfill_countries(db: Database) -> int:
+    fixed = 0
+    for row in db.jobs_without_country():
+        code = infer_country(row.get("city"))
+        if code:
+            db.set_job_country(row["id"], code)
+            fixed += 1
+    return fixed
 
 
 def run_matching(db: Database, claude: anthropic.Anthropic, model: str, uid: str, profile_row: dict) -> int:

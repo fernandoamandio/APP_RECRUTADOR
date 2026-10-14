@@ -123,6 +123,16 @@ class Database:
         ).execute()
         return job_id
 
+    def jobs_without_country(self) -> list[dict]:
+        return self.sb.table("jobs").select("id, city").is_("country", "null").not_.is_("city", "null").execute().data
+
+    def set_job_country(self, job_id: str, country: str) -> None:
+        self.sb.table("jobs").update({"country": country}).eq("id", job_id).execute()
+        if country == "BR":  # vaga no Brasil: elegível para quem mora aqui, sem depender de visto ou remoto
+            self.sb.table("job_eligibility").update({
+                "category": "local_br", "evidence": "Vaga localizada no Brasil", "confidence": 1.0,
+            }).eq("job_id", job_id).execute()
+
     def eligibility(self, job_ids: list[str]) -> dict[str, dict]:
         out: dict[str, dict] = {}
         for i in range(0, len(job_ids), 200):
