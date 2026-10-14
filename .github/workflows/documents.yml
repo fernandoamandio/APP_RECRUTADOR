@@ -5,7 +5,12 @@ name: Analisar currículos
 on:
   schedule:
     - cron: "7,22,37,52 * * * *"
-  workflow_dispatch: {}
+  workflow_dispatch:
+    inputs:
+      selftest:
+        description: "Rodar o autoteste (currículo fictício, não grava no banco)"
+        type: boolean
+        default: false
 
 concurrency:
   group: documents
@@ -29,8 +34,9 @@ jobs:
       - name: Analisar documentos
         run: |
           set -o pipefail
-          python -m recrutador.documents 2>&1 | tee out.txt || { tail -n 8 out.txt | sed 's/^/::error::/'; exit 1; }
-          grep -E "documents: " out.txt | sed -E 's/^.*documents: //' | sed 's/^/::notice::/' || true
+          if [ "${{ inputs.selftest }}" = "true" ]; then MOD=recrutador.selftest; else MOD=recrutador.documents; fi
+          python -m $MOD 2>&1 | tee out.txt || { tail -n 8 out.txt | sed 's/^/::error::/'; exit 1; }
+          grep -E "documents: |selftest[: ]" out.txt | sed -E 's/^.*(documents|selftest): //' | sed 's/^/::notice::/' || true
           grep -E " WARNING " out.txt | sed -E 's/^.* WARNING //' | head -n 10 | sed 's/^/::warning::/' || true
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
