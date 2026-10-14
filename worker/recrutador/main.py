@@ -155,6 +155,7 @@ def run() -> None:
 
 def run_matching(db: Database, claude: anthropic.Anthropic, model: str, uid: str, profile_row: dict) -> int:
     pending = db.pending_matches(uid, MAX_MATCH_PER_USER)
+    log.info("usuário %s: %d vagas aguardando match", uid[:8], len(pending))
     if not pending:
         return 0
     docs = db.latest_documents(uid)
@@ -165,6 +166,7 @@ def run_matching(db: Database, claude: anthropic.Anthropic, model: str, uid: str
     for job_id in pending:
         job = db.job_for_match(job_id)
         if not job:
+            log.warning("match: vaga %s não encontrada", job_id)
             continue
         try:
             result = match(claude, model, candidate, job)

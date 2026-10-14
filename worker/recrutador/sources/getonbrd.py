@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import time
 from datetime import datetime, timezone
 
 import httpx
@@ -27,14 +28,17 @@ class GetOnBoardSource(JobSource):
 
     name = "getonbrd"
 
-    def __init__(self, client: httpx.Client, per_page: int = 50):
+    def __init__(self, client: httpx.Client, per_page: int = 50, max_terms: int = 3, pause: float = 1.5):
         super().__init__(client)
         self.per_page = per_page
+        self.max_terms = max_terms  # poucas buscas por rodada: a API recusa (403) rajadas de chamadas
+        self.pause = pause  # segundos entre chamadas
         self._company_names: dict[str, str] = {}
 
     def fetch(self, search_terms: list[str], tags: list[str]) -> list[RawJob]:
         jobs: list[RawJob] = []
-        for term in search_terms:
+        for term in search_terms[: self.max_terms]:
+            time.sleep(self.pause)
             resp = self.client.get(f"{BASE_URL}/search/jobs", params={"query": term, "per_page": self.per_page})
             resp.raise_for_status()
             jobs.extend(self.parse(resp.json(), self.company_name))
@@ -43,6 +47,7 @@ class GetOnBoardSource(JobSource):
     def company_name(self, company_id: str) -> str:
         if company_id not in self._company_names:
             try:
+                time.sleep(self.pause)
                 resp = self.client.get(f"{BASE_URL}/companies/{company_id}")
                 resp.raise_for_status()
                 self._company_names[company_id] = resp.json()["data"]["attributes"].get("name", "")
