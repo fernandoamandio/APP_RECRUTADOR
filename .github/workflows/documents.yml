@@ -1,0 +1,40 @@
+name: Analisar currículos
+
+# Verifica a cada 15 minutos se alguém enviou currículo ou cover letter pelo app.
+# Sem documento novo, termina em segundos.
+on:
+  schedule:
+    - cron: "7,22,37,52 * * * *"
+  workflow_dispatch: {}
+
+concurrency:
+  group: documents
+  cancel-in-progress: false
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: worker
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: worker/pyproject.toml
+      - run: pip install -e .
+      - name: Analisar documentos
+        run: |
+          set -o pipefail
+          python -m recrutador.documents 2>&1 | tee out.txt || { tail -n 8 out.txt | sed 's/^/::error::/'; exit 1; }
+          grep -E "documents: " out.txt | sed -E 's/^.*documents: //' | sed 's/^/::notice::/' || true
+          grep -E " WARNING " out.txt | sed -E 's/^.* WARNING //' | head -n 10 | sed 's/^/::warning::/' || true
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          CLAUDE_PROFILE_MODEL: claude-sonnet-5-5
+          CLAUDE_MATCH_MODEL: claude-haiku-5-5

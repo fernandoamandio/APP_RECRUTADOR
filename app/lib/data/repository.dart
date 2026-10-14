@@ -130,17 +130,36 @@ class Repository {
   }
 
   /// Envia o PDF para o bucket privado e registra o documento. Retorna o id.
-  Future<String> uploadDocument(String kind, Uint8List bytes) async {
+  /// `origin`: 'upload' (arquivo próprio) ou 'linkedin_pdf' (PDF exportado do perfil do LinkedIn).
+  /// A análise é feita pelo worker em até 15 minutos.
+  Future<String> uploadDocument(String kind, Uint8List bytes, {String origin = 'upload'}) async {
     final path = '$uid/$kind-${DateTime.now().millisecondsSinceEpoch}.pdf';
     await sb.storage.from('documents').uploadBinary(path, bytes,
         fileOptions: const FileOptions(contentType: 'application/pdf'));
-    final row = await sb.from('documents').insert({'user_id': uid, 'kind': kind, 'storage_path': path}).select('id').single();
+    final row = await sb
+        .from('documents')
+        .insert({'user_id': uid, 'kind': kind, 'storage_path': path, 'origin': origin})
+        .select('id')
+        .single();
     return row['id'] as String;
   }
 
-  Future<void> analyzeCv(String cvId, String? coverId) async {
-    final res = await sb.functions.invoke('analyze-cv', body: {'cv_document_id': cvId, 'cover_letter_document_id': coverId});
-    if (res.status != 200) throw Exception('Falha na análise do currículo (${res.status})');
+  /// Dados do perfil usados na tela de documentos (consentimento e link do LinkedIn).
+  Future<Map<String, dynamic>?> profileInfo() =>
+      sb.from('profiles').select('consent_ai_at, linkedin_url').eq('user_id', uid).maybeSingle();
+
+  Future<void> saveLinkedinUrl(String url) =>
+      sb.from('profiles').update({'linkedin_url': url}).eq('user_id', uid);
+
+  /// Documento mais recente de cada tipo, com o status da análise.
+  Future<List<Map<String, dynamic>>> latestDocuments() async {
+    final rows = await sb
+        .from('documents')
+        .select('kind, origin, created_at, analyzed_at')
+        .eq('user_id', uid)
+        .order('created_at', ascending: false);
+    final seen = <String>{};
+    return [for (final r in rows) if (seen.add(r['kind'] as String)) r];
   }
 
   Future<Map<String, dynamic>?> careerProfile() =>

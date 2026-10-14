@@ -63,6 +63,40 @@ class Database:
                 continue
         return out
 
+    def pending_documents(self) -> list[dict]:
+        """Documentos ainda não analisados (o mais recente de cada tipo, por usuário)."""
+        rows = (self.sb.table("documents").select("id, user_id, kind, storage_path, created_at")
+                .is_("analyzed_at", "null").order("created_at", desc=True).execute().data)
+        seen: set[tuple[str, str]] = set()
+        out = []
+        for r in rows:
+            if (r["user_id"], r["kind"]) not in seen:
+                seen.add((r["user_id"], r["kind"]))
+                out.append(r)
+        return out
+
+    def download(self, storage_path: str) -> bytes:
+        return self.sb.storage.from_("documents").download(storage_path)
+
+    def mark_analyzed(self, user_id: str, kind: str) -> None:
+        """Marca todas as versões pendentes daquele tipo (as antigas ficam superadas pela mais recente)."""
+        self.sb.table("documents").update({"analyzed_at": datetime.now(timezone.utc).isoformat()}) \
+            .eq("user_id", user_id).eq("kind", kind).is_("analyzed_at", "null").execute()
+
+    def save_extracted_profile(self, row: dict) -> None:
+        # O usuário enviou o currículo de propósito: o perfil já vale para a busca (editável no app)
+        row = {**row, "confirmed_at": datetime.now(timezone.utc).isoformat(),
+               "updated_at": datetime.now(timezone.utc).isoformat()}
+        self.sb.table("career_profile").upsert(row, on_conflict="user_id").execute()
+
+    def career_profile(self, user_id: str) -> dict | None:
+        rows = self.sb.table("career_profile").select("*").eq("user_id", user_id).execute().data
+        return rows[0] if rows else None
+
+    def has_ai_consent(self, user_id: str) -> bool:
+        rows = self.sb.table("profiles").select("consent_ai_at").eq("user_id", user_id).execute().data
+        return bool(rows and rows[0].get("consent_ai_at"))
+
     def pending_matches(self, user_id: str, limit: int) -> list[str]:
         """Vagas do feed ainda sem match calculado, as de maior nota primeiro."""
         rows = (self.sb.table("job_matches").select("job_id").eq("user_id", user_id).is_("matched_at", "null")

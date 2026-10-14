@@ -23,7 +23,8 @@ final _router = GoRouter(
   refreshListenable: _AuthRefresh(),
   routes: [
     GoRoute(path: '/login', builder: (_, __) => const SignInScreen()),
-    GoRoute(path: '/onboarding/documents', builder: (_, __) => const DocumentsScreen()),
+    GoRoute(path: '/onboarding/documents', builder: (_, __) => const DocumentsScreen(onboarding: true)),
+    GoRoute(path: '/documents', builder: (_, __) => const DocumentsScreen()),
     GoRoute(path: '/onboarding/household', builder: (_, __) => const HouseholdScreen()),
     GoRoute(path: '/profile', builder: (_, __) => const CareerProfileScreen()),
     GoRoute(path: '/feed', builder: (_, __) => const FeedScreen()),

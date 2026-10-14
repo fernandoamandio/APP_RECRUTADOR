@@ -50,8 +50,8 @@ class _CareerProfileScreenState extends ConsumerState<CareerProfileScreen> {
           if (p == null) {
             return Center(
               child: TextButton(
-                onPressed: () => context.go('/onboarding/documents'),
-                child: const Text('Envie seu currículo para gerar o perfil'),
+                onPressed: () => context.push('/documents'),
+                child: const Text('Envie seu currículo ou o PDF do LinkedIn para gerar o perfil'),
               ),
             );
           }
@@ -68,6 +68,12 @@ class _CareerProfileScreenState extends ConsumerState<CareerProfileScreen> {
               ),
               const SizedBox(height: 8),
               Text('Seu perfil profissional', style: t.headlineMedium),
+              const SizedBox(height: 12),
+              OutlinedButton.icon(
+                onPressed: () => context.push('/documents'),
+                icon: const Icon(Icons.upload_file),
+                label: const Text('Atualizar currículo ou LinkedIn'),
+              ),
               const SizedBox(height: 16),
               _Section(title: 'Cargos-alvo', children: [
                 Wrap(spacing: 6, runSpacing: 6, children: [

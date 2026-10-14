@@ -23,9 +23,10 @@ npm i -g supabase
 supabase login
 supabase link --project-ref <seu-project-ref>
 supabase db push                       # aplica supabase/migrations
-supabase secrets set ANTHROPIC_API_KEY=sk-ant-...
-supabase functions deploy analyze-cv
 ```
+
+A análise do currículo (PDF próprio ou PDF exportado do perfil do LinkedIn) roda no worker,
+pelo workflow **Analisar currículos**, a cada 15 minutos. A Edge Function `analyze-cv` é opcional.
 
 ### 2. Worker (Python 3.11+)
 

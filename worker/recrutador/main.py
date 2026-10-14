@@ -16,6 +16,7 @@ from dotenv import load_dotenv
 
 from .db import Database
 from .dedup import deduplicate, merge
+from .documents import process_documents
 from .geo import infer_country
 from .learning import apply_event
 from .matching import CandidateMaterial, match, profile_as_text
@@ -67,6 +68,12 @@ def run() -> None:
     match_model = os.getenv("CLAUDE_MATCH_MODEL", "claude-haiku-5-5")
     contact = os.getenv("CONTACT_EMAIL", "")
     http = httpx.Client(timeout=30, headers={"User-Agent": f"recrutador-worker/0.1 ({contact})"})
+
+    # Currículos e cover letters novos primeiro: podem criar ou mudar o perfil usado na busca
+    try:
+        process_documents(db, claude, os.getenv("CLAUDE_PROFILE_MODEL", "claude-sonnet-5-5"), match_model)
+    except Exception as exc:  # documentos não podem derrubar a rodada de vagas
+        log.warning("processamento de documentos falhou: %s", exc)
 
     users = db.confirmed_profiles()
     if not users:
