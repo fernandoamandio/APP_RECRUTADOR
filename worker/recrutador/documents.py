@@ -43,7 +43,7 @@ def process_documents(db: Database, claude: anthropic.Anthropic, profile_model: 
                          len(profile.get("target_titles") or []))
             for kind in docs:
                 db.mark_analyzed(uid, kind)
-        except (anthropic.APIError, StopIteration, KeyError) as exc:
+        except (anthropic.APIError, ValueError, KeyError) as exc:
             log.warning("usuário %s: falha ao analisar documentos: %s", uid[:8], exc)
             continue
 

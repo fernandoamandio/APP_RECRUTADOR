@@ -8,6 +8,8 @@ import base64
 
 import anthropic
 
+from .llm import call_tool
+
 PROFILE_TOOL = {
     "name": "save_career_profile",
     "description": "Salva o perfil profissional extraído do currículo.",
@@ -61,12 +63,8 @@ def extract_profile(client: anthropic.Anthropic, model: str, cv_pdf: bytes,
     if cover_letter_pdf:
         content.append(_pdf_block("Cover letter", cover_letter_pdf))
     content.append({"type": "text", "text": "Extraia o perfil profissional destes documentos."})
-    msg = client.messages.create(
-        model=model, max_tokens=2048, system=SYSTEM, tools=[PROFILE_TOOL],
-        tool_choice={"type": "tool", "name": PROFILE_TOOL["name"]},
-        messages=[{"role": "user", "content": content}],
-    )
-    return next(b.input for b in msg.content if b.type == "tool_use")
+    return call_tool(client, model=model, system=SYSTEM, tool=PROFILE_TOOL,
+                     messages=[{"role": "user", "content": content}], max_tokens=2048)
 
 
 def to_career_profile_row(user_id: str, doc_id: str, p: dict) -> dict:

@@ -13,6 +13,7 @@ from dataclasses import dataclass, field
 
 import anthropic
 
+from .llm import call_tool
 from .models import RawJob
 
 MAX_JOB_CHARS = 8_000
@@ -100,15 +101,7 @@ def parse_match(data: dict) -> MatchResult:
 
 
 def match(client: anthropic.Anthropic, model: str, candidate: CandidateMaterial, job: RawJob) -> MatchResult:
-    msg = client.messages.create(
-        model=model,
-        max_tokens=600,
-        system=SYSTEM,
-        tools=[MATCH_TOOL],
-        tool_choice={"type": "tool", "name": "record_match"},
-        messages=[{"role": "user", "content": [
-            *candidate.content_blocks(),
-            {"type": "text", "text": job_as_text(job)},
-        ]}],
-    )
-    return parse_match(next(b.input for b in msg.content if b.type == "tool_use"))
+    data = call_tool(client, model=model, system=SYSTEM, tool=MATCH_TOOL, max_tokens=600, messages=[
+        {"role": "user", "content": [*candidate.content_blocks(), {"type": "text", "text": job_as_text(job)}]},
+    ])
+    return parse_match(data)

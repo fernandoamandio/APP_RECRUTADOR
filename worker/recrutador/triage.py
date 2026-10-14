@@ -9,6 +9,7 @@ import logging
 
 import anthropic
 
+from .llm import call_tool
 from .models import Eligibility, RawJob, TriageResult
 from .sponsors import SponsorRegistry
 
@@ -67,15 +68,8 @@ def triage(client: anthropic.Anthropic, model: str, job: RawJob, sponsors: Spons
                             confidence=1.0, model="rule:country=BR")
 
     registered = sponsors.is_registered(job.company, job.country)
-    msg = client.messages.create(
-        model=model,
-        max_tokens=400,
-        system=SYSTEM,
-        tools=[TRIAGE_TOOL],
-        tool_choice={"type": "tool", "name": "classify_job"},
-        messages=[{"role": "user", "content": _job_prompt(job)}],
-    )
-    data = next(b.input for b in msg.content if b.type == "tool_use")
+    data = call_tool(client, model=model, system=SYSTEM, tool=TRIAGE_TOOL, max_tokens=400,
+                     messages=[{"role": "user", "content": _job_prompt(job)}])
     category = Eligibility(data["category"])
 
     # Registro oficial reforça uma vaga presencial "incerta" como possível patrocínio

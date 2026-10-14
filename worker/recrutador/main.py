@@ -120,7 +120,7 @@ def run() -> None:
             break
         try:
             result = triage(claude, triage_model, jobs[h][0], sponsors)
-        except anthropic.APIError as exc:
+        except (anthropic.APIError, ValueError) as exc:
             log.warning("triagem falhou para %s: %s", job_id, exc)
             continue
         db.save_eligibility(job_id, result)
@@ -195,7 +195,7 @@ def run_matching(db: Database, claude: anthropic.Anthropic, model: str, uid: str
             continue
         try:
             result = match(claude, model, candidate, job)
-        except anthropic.APIError as exc:
+        except (anthropic.APIError, ValueError) as exc:
             log.warning("match falhou para %s: %s", job_id, exc)
             continue
         db.save_match_result(uid, job_id, result.percent, result.strengths, result.gaps)
