@@ -4,7 +4,11 @@ import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'features/applications/applications_screen.dart';
+import 'auth/auth_service.dart';
+import 'features/auth/change_password_screen.dart';
+import 'features/auth/forgot_password_screen.dart';
 import 'features/auth/sign_in_screen.dart';
+import 'features/auth/sign_up_screen.dart';
 import 'features/feed/feed_screen.dart';
 import 'features/job/job_detail_screen.dart';
 import 'features/onboarding/documents_screen.dart';
@@ -16,14 +20,29 @@ final _router = GoRouter(
   initialLocation: '/feed',
   redirect: (context, state) {
     final loggedIn = Supabase.instance.client.auth.currentSession != null;
-    final goingToLogin = state.matchedLocation == '/login';
-    if (!loggedIn && !goingToLogin) return '/login';
-    if (loggedIn && goingToLogin) return '/feed';
+    final loc = state.matchedLocation;
+    // Telas acessíveis sem login; cadastro e recuperação continuam válidos logo após o código criar a sessão
+    const publicRoutes = {'/login', '/signup', '/forgot-password'};
+    if (!loggedIn) return publicRoutes.contains(loc) ? null : '/login';
+    if (passwordGate.expired && !{'/change-password', '/signup', '/forgot-password'}.contains(loc)) {
+      return '/change-password'; // senha com mais de 90 dias: troca obrigatória
+    }
+    if (loc == '/login') return '/feed';
     return null;
   },
-  refreshListenable: _AuthRefresh(),
+  refreshListenable: Listenable.merge([_AuthRefresh(), passwordGate]),
   routes: [
     GoRoute(path: '/login', builder: (_, __) => const SignInScreen()),
+    GoRoute(path: '/signup', builder: (_, s) {
+      final extra = s.extra is Map ? s.extra as Map : const {};
+      return SignUpScreen(
+        initialEmail: extra['email'] as String?,
+        initialPassword: extra['password'] as String?,
+        verifyOnly: extra['verifyOnly'] == true,
+      );
+    }),
+    GoRoute(path: '/forgot-password', builder: (_, s) => ForgotPasswordScreen(initialEmail: s.extra as String?)),
+    GoRoute(path: '/change-password', builder: (_, __) => const ChangePasswordScreen()),
     GoRoute(path: '/onboarding/documents', builder: (_, __) => const DocumentsScreen(onboarding: true)),
     GoRoute(path: '/documents', builder: (_, __) => const DocumentsScreen()),
     GoRoute(path: '/onboarding/household', builder: (_, __) => const HouseholdScreen()),

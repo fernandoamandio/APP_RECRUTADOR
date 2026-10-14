@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../auth/auth_service.dart';
 import '../../data/models.dart';
 import '../../data/repository.dart';
 import '../../theme.dart';
@@ -50,6 +51,23 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
                 padding: EdgeInsets.only(top: 4),
                 child: Text('As $topPerCountry de maior match em cada país, com o seu país primeiro',
                     style: TextStyle(fontSize: 13, color: AppColors.quiet)),
+              ),
+              ListenableBuilder(
+                listenable: passwordGate,
+                builder: (_, __) {
+                  final days = passwordGate.daysLeft;
+                  if (days == null || days > 7) return const SizedBox.shrink();
+                  return Card(
+                    margin: const EdgeInsets.only(top: 12),
+                    color: AppColors.visaTint,
+                    child: ListTile(
+                      leading: const Icon(Icons.lock_clock, color: AppColors.visa),
+                      title: Text(days <= 1 ? 'Sua senha expira amanhã' : 'Sua senha expira em $days dias'),
+                      subtitle: const Text('Troque agora para não ser obrigado a trocar no próximo acesso.'),
+                      onTap: () => context.push('/change-password'),
+                    ),
+                  );
+                },
               ),
               const SizedBox(height: 12),
               Wrap(spacing: 8, runSpacing: 4, children: [

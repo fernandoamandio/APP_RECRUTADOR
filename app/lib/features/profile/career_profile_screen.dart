@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../auth/auth_service.dart';
 import '../../data/repository.dart';
 import '../../theme.dart';
 import '../../widgets/app_nav.dart';
@@ -109,6 +110,27 @@ class _CareerProfileScreenState extends ConsumerState<CareerProfileScreen> {
               ]),
               const SizedBox(height: 24),
               FilledButton(onPressed: _titles!.isEmpty ? null : _confirm, child: const Text('Confirmar e buscar vagas')),
+              const SizedBox(height: 24),
+              _Section(title: 'Conta e segurança', children: [
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: const Icon(Icons.lock_outline),
+                  title: const Text('Alterar senha'),
+                  subtitle: ListenableBuilder(
+                    listenable: passwordGate,
+                    builder: (_, __) => Text(passwordGate.daysLeft == null
+                        ? 'Confirmação por código no e-mail'
+                        : 'Expira em ${passwordGate.daysLeft} dias · confirmação por código no e-mail'),
+                  ),
+                  onTap: () => context.push('/change-password'),
+                ),
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: const Icon(Icons.logout),
+                  title: const Text('Sair'),
+                  onTap: () => authService.auth.signOut(),
+                ),
+              ]),
             ],
           );
         },
