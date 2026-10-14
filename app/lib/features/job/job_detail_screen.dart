@@ -108,6 +108,8 @@ class JobDetailScreen extends ConsumerWidget {
             const SizedBox(height: 16),
             Text(job.description, style: t.bodyMedium),
             const SizedBox(height: 24),
+            _ApplyButton(job: job),
+            const SizedBox(height: 10),
             Row(children: [
               Expanded(child: OutlinedButton(onPressed: () => _dismiss(context, ref), child: const Text('Descartar'))),
               const SizedBox(width: 10),
@@ -125,10 +127,8 @@ class JobDetailScreen extends ConsumerWidget {
             // Atribuição obrigatória: link direto para a vaga na fonte original
             for (final src in job.sources)
               FilledButton(
-                onPressed: () async {
-                  await ref.read(repositoryProvider).react(jobId, 'applied');
-                  await launchUrl(Uri.parse(src.url), mode: LaunchMode.externalApplication);
-                },
+                // Abrir a vaga não marca candidatura: isso é com o botão "Já me candidatei"
+                onPressed: () => launchUrl(Uri.parse(src.url), mode: LaunchMode.externalApplication),
                 child: Text('Ver vaga no ${src.label}'),
               ),
             const SizedBox(height: 10),
@@ -155,6 +155,60 @@ class JobDetailScreen extends ConsumerWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+/// "Já me candidatei": tira a vaga do feed (e das notificações) e leva para Candidaturas.
+class _ApplyButton extends ConsumerWidget {
+  const _ApplyButton({required this.job});
+  final JobMatch job;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final repo = ref.read(repositoryProvider);
+    if (job.status == 'applied') {
+      return Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(color: const Color(0xFFDCFCE7), borderRadius: BorderRadius.circular(12)),
+        child: Row(children: [
+          const Icon(Icons.task_alt, color: Color(0xFF15803D)),
+          const SizedBox(width: 8),
+          const Expanded(child: Text('Você já se candidatou a esta vaga', style: TextStyle(fontWeight: FontWeight.w700))),
+          TextButton(
+            onPressed: () async {
+              await repo.unapply(job.jobId);
+              ref.invalidate(feedProvider);
+              ref.invalidate(applicationsProvider);
+              ref.invalidate(jobProvider(job.jobId));
+            },
+            child: const Text('Desmarcar'),
+          ),
+        ]),
+      );
+    }
+    return FilledButton.icon(
+      style: FilledButton.styleFrom(backgroundColor: const Color(0xFF15803D)),
+      icon: const Icon(Icons.task_alt),
+      label: const Text('Já me candidatei'),
+      onPressed: () async {
+        final messenger = ScaffoldMessenger.of(context);
+        await repo.react(job.jobId, 'applied');
+        ref.invalidate(feedProvider);
+        ref.invalidate(applicationsProvider);
+        messenger.showSnackBar(SnackBar(
+          content: const Text('Candidatura registrada. A vaga saiu do feed e está em Candidaturas.'),
+          action: SnackBarAction(
+            label: 'Desfazer',
+            onPressed: () async {
+              await repo.unapply(job.jobId);
+              ref.invalidate(feedProvider);
+              ref.invalidate(applicationsProvider);
+            },
+          ),
+        ));
+        if (context.mounted) Navigator.of(context).pop();
+      },
     );
   }
 }

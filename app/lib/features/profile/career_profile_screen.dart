@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../data/repository.dart';
 import '../../theme.dart';
+import '../../widgets/app_nav.dart';
 
 /// Perfil gerado pelo Claude a partir do currículo. O usuário revisa e confirma antes da busca.
 class CareerProfileScreen extends ConsumerStatefulWidget {
@@ -42,7 +43,8 @@ class _CareerProfileScreenState extends ConsumerState<CareerProfileScreen> {
     final t = Theme.of(context).textTheme;
     final async = ref.watch(careerProfileProvider);
     return Scaffold(
-      appBar: AppBar(title: const Text('Seu perfil')),
+      appBar: AppBar(title: const Text('Seu perfil'), automaticallyImplyLeading: false),
+      bottomNavigationBar: const AppNav(index: 2),
       body: async.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => Center(child: Text('Erro ao carregar o perfil: $e')),

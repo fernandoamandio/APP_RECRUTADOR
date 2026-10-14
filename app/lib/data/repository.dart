@@ -72,6 +72,10 @@ final jobProvider = FutureProvider.autoDispose.family<JobMatch, String>((ref, id
   return ref.watch(repositoryProvider).job(id);
 });
 
+final applicationsProvider = FutureProvider.autoDispose<List<(JobMatch, DateTime?)>>((ref) {
+  return ref.watch(repositoryProvider).applications();
+});
+
 final careerProfileProvider = FutureProvider.autoDispose<Map<String, dynamic>?>((ref) {
   return ref.watch(repositoryProvider).careerProfile();
 });
@@ -111,6 +115,29 @@ class Repository {
   }
 
   /// Salvar, descartar ou aplicar: muda o status e registra o evento para o aprendizado.
+  /// Desfaz a marcação de candidatura: a vaga volta para o feed.
+  Future<void> unapply(String jobId) =>
+      sb.from('job_matches').update({'status': 'seen'}).eq('user_id', uid).eq('job_id', jobId);
+
+  /// Vagas marcadas como "Já me candidatei", da candidatura mais recente para a mais antiga.
+  Future<List<(JobMatch, DateTime?)>> applications() async {
+    final rows = await sb.from('job_matches').select(_matchSelect).eq('user_id', uid).eq('status', 'applied');
+    final events = await sb
+        .from('feedback_events')
+        .select('job_id, created_at')
+        .eq('user_id', uid)
+        .eq('kind', 'applied')
+        .order('created_at', ascending: false);
+    final appliedAt = <String, DateTime>{};
+    for (final e in events) {
+      appliedAt.putIfAbsent(e['job_id'] as String, () => DateTime.parse(e['created_at'] as String));
+    }
+    final list = [for (final r in rows) JobMatch.fromRow(r)];
+    final out = [for (final j in list) (j, appliedAt[j.jobId])];
+    out.sort((a, b) => (b.$2?.millisecondsSinceEpoch ?? 0).compareTo(a.$2?.millisecondsSinceEpoch ?? 0));
+    return out;
+  }
+
   Future<void> react(String jobId, String kind, {String? reason}) async {
     final status = switch (kind) { 'saved' => 'saved', 'dismissed' => 'dismissed', 'applied' => 'applied', _ => null };
     if (status != null) {

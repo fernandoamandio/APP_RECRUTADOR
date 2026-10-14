@@ -5,15 +5,29 @@ import 'package:go_router/go_router.dart';
 import '../../data/models.dart';
 import '../../data/repository.dart';
 import '../../theme.dart';
+import '../../notifications.dart';
+import '../../widgets/app_nav.dart';
 import '../../widgets/eligibility_badge.dart';
 import '../../widgets/match_badge.dart';
 import '../../widgets/money.dart';
 
-class FeedScreen extends ConsumerWidget {
+class FeedScreen extends ConsumerStatefulWidget {
   const FeedScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<FeedScreen> createState() => _FeedScreenState();
+}
+
+class _FeedScreenState extends ConsumerState<FeedScreen> {
+  @override
+  void initState() {
+    super.initState();
+    // Android 13+: pede permissão para avisar de vagas novas (o sistema só pergunta uma vez)
+    WidgetsBinding.instance.addPostFrameCallback((_) => requestNotificationPermission().catchError((_) {}));
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final t = Theme.of(context).textTheme;
     final filter = ref.watch(feedFilterProvider);
     final feed = ref.watch(feedProvider);
@@ -57,14 +71,7 @@ class FeedScreen extends ConsumerWidget {
           ),
         ),
       ),
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: 0,
-        onDestinationSelected: (i) => i == 1 ? context.go('/profile') : null,
-        destinations: const [
-          NavigationDestination(icon: Icon(Icons.work_outline), label: 'Vagas'),
-          NavigationDestination(icon: Icon(Icons.person_outline), label: 'Perfil'),
-        ],
-      ),
+      bottomNavigationBar: const AppNav(index: 0),
     );
   }
 }

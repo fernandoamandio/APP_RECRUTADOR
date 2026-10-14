@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import 'features/applications/applications_screen.dart';
 import 'features/auth/sign_in_screen.dart';
 import 'features/feed/feed_screen.dart';
 import 'features/job/job_detail_screen.dart';
@@ -28,6 +29,7 @@ final _router = GoRouter(
     GoRoute(path: '/onboarding/household', builder: (_, __) => const HouseholdScreen()),
     GoRoute(path: '/profile', builder: (_, __) => const CareerProfileScreen()),
     GoRoute(path: '/feed', builder: (_, __) => const FeedScreen()),
+    GoRoute(path: '/applications', builder: (_, __) => const ApplicationsScreen()),
     GoRoute(path: '/job/:id', builder: (_, s) => JobDetailScreen(jobId: s.pathParameters['id']!)),
   ],
 );

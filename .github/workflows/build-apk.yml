@@ -35,6 +35,11 @@ jobs:
             sed -i 's#<application#<uses-permission android:name="android.permission.INTERNET"/>\n    <application#' "$manifest"
           # Nome que aparece embaixo do ícone
           sed -i 's#android:label="recrutador"#android:label="Vagas Globais"#' "$manifest"
+          # Notificações locais exigem "core library desugaring" (flutter_local_notifications)
+          gradle=android/app/build.gradle.kts
+          sed -i 's#compileOptions {#compileOptions {\n        isCoreLibraryDesugaringEnabled = true#' "$gradle"
+          printf '\ndependencies {\n    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")\n}\n' >> "$gradle"
+          grep -n "Desugaring\|desugar" "$gradle" | sed 's/^/::notice::gradle /'
 
       - run: flutter pub get
 

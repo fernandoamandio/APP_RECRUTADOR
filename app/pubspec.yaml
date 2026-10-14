@@ -16,6 +16,9 @@ dependencies:
   google_fonts: ^6.2.1
   intl: ^0.19.0
   url_launcher: ^6.3.0
+  workmanager: ^0.10.10
+  flutter_local_notifications: ^22.3.2
+  shared_preferences: ^2.3.0
 
 dev_dependencies:
   flutter_test:

@@ -2,7 +2,7 @@ name: Worker de vagas
 
 on:
   schedule:
-    - cron: "17 */6 * * *"   # a cada 6 horas (UTC), fora do minuto 0 para evitar fila
+    - cron: "47 10,20 * * *"   # 2x por dia: 07:47 e 17:47 no horário de Brasília (10:47 e 20:47 UTC)
   workflow_dispatch: {}       # permite rodar manualmente pela aba Actions
 
 concurrency:
