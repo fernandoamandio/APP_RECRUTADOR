@@ -54,6 +54,10 @@ class JobSourceLink {
         'getonbrd' => 'Get on Board',
         'workingnomads' => 'Working Nomads',
         'infojobs' => 'InfoJobs',
+        'linkedin' => 'LinkedIn',
+        'indeed' => 'Indeed',
+        'glassdoor' => 'Glassdoor',
+        'google' => 'Google Jobs',
         _ => source,
       };
 }

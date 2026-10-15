@@ -43,6 +43,10 @@ jobs:
           ADZUNA_APP_KEY: ${{ secrets.ADZUNA_APP_KEY }}
           ADZUNA_COUNTRIES: br,gb,nl,de,us,ca
           JOOBLE_API_KEY: ${{ secrets.JOOBLE_API_KEY }}
+          # Opcional, uso pessoal: LinkedIn/Indeed/Glassdoor via Apify (só roda se o secret existir)
+          APIFY_TOKEN: ${{ secrets.APIFY_TOKEN }}
+          APIFY_ACTOR: ${{ vars.APIFY_ACTOR }}
+          APIFY_MAX_RESULTS: ${{ vars.APIFY_MAX_RESULTS }}
           INFOJOBS_CLIENT_ID: ${{ secrets.INFOJOBS_CLIENT_ID }}
           INFOJOBS_CLIENT_SECRET: ${{ secrets.INFOJOBS_CLIENT_SECRET }}
           CONTACT_EMAIL: ${{ secrets.CONTACT_EMAIL }}

@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import logging
 import os
+from datetime import datetime, timezone
 from functools import lru_cache
 
 import anthropic
@@ -25,7 +26,7 @@ from .prefilter import prefilter
 from .salary import market_from_histogram, suggest_relocation, suggest_remote, family_monthly_cost
 from .scoring import score
 from .sources import (
-    AdzunaSource, ArbeitnowSource, GetOnBoardSource, InfoJobsSource, JobSource, JoobleSource,
+    AdzunaSource, ApifyJobsSource, ArbeitnowSource, GetOnBoardSource, InfoJobsSource, JobSource, JoobleSource,
     RemoteOKSource, WeWorkRemotelySource, WorkingNomadsSource,
 )
 from .sponsors import SponsorRegistry
@@ -46,6 +47,15 @@ def build_sources(client: httpx.Client) -> tuple[list[JobSource], AdzunaSource |
         ArbeitnowSource(client), GetOnBoardSource(client),
     ]
     # Fontes com chave: só entram quando os secrets existem
+    # LinkedIn, Indeed e Glassdoor via Apify: USO PESSOAL (raspagem; contra os termos desses sites).
+    # Roda só na rodada da manhã para limitar o custo (cobrado por vaga retornada).
+    if os.getenv("APIFY_TOKEN") and (os.getenv("APIFY_EVERY_RUN") == "1" or datetime.now(timezone.utc).hour < 15):
+        sources.append(ApifyJobsSource(
+            client, os.environ["APIFY_TOKEN"],
+            actor=os.getenv("APIFY_ACTOR") or "iskoren/multi-job-board-scraper",
+            max_results=int(os.getenv("APIFY_MAX_RESULTS") or "10"),  # variável vazia = padrão
+            sites=[s.strip() for s in (os.getenv("APIFY_SITES") or "linkedin,indeed,glassdoor").split(",") if s.strip()],
+        ))
     if os.getenv("INFOJOBS_CLIENT_ID") and os.getenv("INFOJOBS_CLIENT_SECRET"):
         sources.append(InfoJobsSource(client, os.environ["INFOJOBS_CLIENT_ID"], os.environ["INFOJOBS_CLIENT_SECRET"]))
     adzuna = None
