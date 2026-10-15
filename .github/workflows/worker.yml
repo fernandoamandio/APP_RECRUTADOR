@@ -47,6 +47,8 @@ jobs:
           APIFY_TOKEN: ${{ secrets.APIFY_TOKEN }}
           APIFY_ACTOR: ${{ vars.APIFY_ACTOR }}
           APIFY_MAX_RESULTS: ${{ vars.APIFY_MAX_RESULTS }}
+          # Rodada manual (Run workflow) também inclui a Apify; a agendada só de manhã
+          APIFY_EVERY_RUN: ${{ github.event_name == 'workflow_dispatch' && '1' || '' }}
           INFOJOBS_CLIENT_ID: ${{ secrets.INFOJOBS_CLIENT_ID }}
           INFOJOBS_CLIENT_SECRET: ${{ secrets.INFOJOBS_CLIENT_SECRET }}
           CONTACT_EMAIL: ${{ secrets.CONTACT_EMAIL }}
