@@ -4,7 +4,7 @@
 App Flutter ──(login, dados, upload)──> Supabase (Auth · Postgres com RLS · Storage · Edge Functions)
                                              ▲                         │
                                              │ grava vagas e notas     └─ analyze-cv ──> API do Claude
-Fontes de vagas ──> Worker Python (agendado) ┘                                          ▲
+Fontes de vagas ──> Worker Python (ao abrir) ┘                                          ▲
 Registros de visto, custo de vida ──┘        └──────── triagem em volume ───────────────┘
 ```
 

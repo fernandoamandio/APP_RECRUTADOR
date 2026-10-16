@@ -1,7 +1,7 @@
 name: Analisar currículos
 
-# Verifica a cada 15 minutos se alguém enviou currículo ou cover letter pelo app.
-# Sem documento novo, termina em segundos.
+# Verifica a cada 15 minutos se alguém enviou currículo ou cover letter pelo app, e se o app
+# pediu uma busca de vagas que o banco não conseguiu disparar na hora. Sem nada novo, termina em segundos.
 on:
   schedule:
     - cron: "7,22,37,52 * * * *"
@@ -15,6 +15,10 @@ on:
 concurrency:
   group: documents
   cancel-in-progress: false
+
+permissions:
+  contents: read
+  actions: write   # disparar o worker de vagas pedido pelo app
 
 jobs:
   run:
@@ -44,3 +48,16 @@ jobs:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           CLAUDE_PROFILE_MODEL: claude-sonnet-5-5
           CLAUDE_MATCH_MODEL: claude-haiku-5-5
+      - name: Busca pedida pelo app
+        id: pending
+        if: ${{ inputs.selftest != true }}
+        run: python -m recrutador.pending_search >> "$GITHUB_OUTPUT"
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      - name: Disparar o worker de vagas
+        if: ${{ steps.pending.outputs.dispatch == 'true' }}
+        run: gh workflow run worker.yml --ref main
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}

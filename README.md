@@ -9,7 +9,7 @@ App mobile que lê o currículo e a cover letter do profissional, entende o perf
 ```
 app/        App Flutter (Android e iOS)
 supabase/   Migrations do Postgres (com RLS) e Edge Functions
-worker/     Worker Python agendado: coleta, triagem, pontuação e salário
+worker/     Worker Python (roda quando o app abre): coleta, triagem, pontuação e salário
 docs/       Arquitetura e decisões
 .github/    CI e agendamento do worker
 ```

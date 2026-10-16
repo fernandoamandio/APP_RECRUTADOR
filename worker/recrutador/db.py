@@ -208,3 +208,39 @@ class Database:
         for r in rows:
             out.setdefault(r["country"], set()).add(r["company_normalized"])
         return out
+
+    # ---------- buscas pedidas pelo app ----------
+
+    def claim_search_requests(self) -> list[int]:
+        """Marca como em andamento os pedidos de busca feitos ao abrir o app."""
+        now = datetime.now(timezone.utc).isoformat()
+        rows = (self.sb.table("search_requests").update({"status": "running", "started_at": now})
+                .eq("status", "pending").execute().data)
+        return [r["id"] for r in rows]
+
+    def finish_search_requests(self, ids: list[int], ok: bool) -> None:
+        if ids:
+            self.sb.table("search_requests").update({
+                "status": "done" if ok else "failed", "finished_at": datetime.now(timezone.utc).isoformat(),
+            }).in_("id", ids).execute()
+
+    def search_requests_to_dispatch(self, wait_minutes: int = 5, redispatch_minutes: int = 30) -> list[int]:
+        """Pedidos que o banco não conseguiu disparar na hora (sem token no Vault ou falha)."""
+        now = datetime.now(timezone.utc)
+        rows = (self.sb.table("search_requests").select("id, requested_at, dispatched_at")
+                .eq("status", "pending").execute().data)
+        out = []
+        for r in rows:
+            requested = datetime.fromisoformat(r["requested_at"])
+            dispatched = datetime.fromisoformat(r["dispatched_at"]) if r.get("dispatched_at") else None
+            if (now - requested).total_seconds() < wait_minutes * 60:
+                continue  # o disparo imediato pode estar a caminho
+            if dispatched and (now - dispatched).total_seconds() < redispatch_minutes * 60:
+                continue
+            out.append(r["id"])
+        return out
+
+    def mark_dispatched(self, ids: list[int]) -> None:
+        if ids:
+            self.sb.table("search_requests").update({"dispatched_at": datetime.now(timezone.utc).isoformat()}) \
+                .in_("id", ids).execute()

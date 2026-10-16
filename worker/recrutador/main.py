@@ -1,14 +1,14 @@
 """Uma rodada do worker: coleta → deduplicação → pré-filtro → triagem → pontuação → salário → match.
 
 Uso:  python -m recrutador.main
-Agendado pelo GitHub Actions (.github/workflows/worker.yml) a cada 6 horas.
+Disparado pelo app ao ser aberto (search_requests) ou manualmente pela aba Actions
+(.github/workflows/worker.yml).
 """
 
 from __future__ import annotations
 
 import logging
 import os
-from datetime import datetime, timezone
 from functools import lru_cache
 
 import anthropic
@@ -49,11 +49,14 @@ def build_sources(client: httpx.Client) -> tuple[list[JobSource], AdzunaSource |
     # Fontes com chave: só entram quando os secrets existem
     # LinkedIn, Indeed e Glassdoor via Apify: USO PESSOAL (raspagem; contra os termos desses sites).
     # Roda só na rodada da manhã para limitar o custo (cobrado por vaga retornada).
-    if os.getenv("APIFY_TOKEN") and (os.getenv("APIFY_EVERY_RUN") == "1" or datetime.now(timezone.utc).hour < 15):
+    if os.getenv("APIFY_TOKEN"):
+        # Total por rodada: 1/4 no Brasil e 3/4 remotas em outros países (20 → 5 + 15); variável vazia = padrão
+        total = int(os.getenv("APIFY_MAX_RESULTS") or "20")
+        br = min(total, int(os.getenv("APIFY_BR_RESULTS") or round(total / 4)))
         sources.append(ApifyJobsSource(
             client, os.environ["APIFY_TOKEN"],
             actor=os.getenv("APIFY_ACTOR") or "iskoren/multi-job-board-scraper",
-            max_results=int(os.getenv("APIFY_MAX_RESULTS") or "10"),  # variável vazia = padrão
+            br_results=br, remote_results=total - br,
             sites=[s.strip() for s in (os.getenv("APIFY_SITES") or "linkedin,indeed,glassdoor").split(",") if s.strip()],
         ))
     if os.getenv("INFOJOBS_CLIENT_ID") and os.getenv("INFOJOBS_CLIENT_SECRET"):
@@ -73,6 +76,24 @@ def run() -> None:
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 
     db = Database(os.environ["SUPABASE_URL"], os.environ["SUPABASE_SERVICE_ROLE_KEY"])
+    # Pedidos de busca feitos ao abrir o app: o app mostra "procurando vagas" até terminarem
+    try:
+        claimed = db.claim_search_requests()
+    except Exception as exc:  # tabela ainda não criada: segue sem acompanhar o pedido
+        log.warning("pedidos de busca indisponíveis: %s", exc)
+        claimed = []
+    ok = False
+    try:
+        pipeline(db)
+        ok = True
+    finally:
+        try:
+            db.finish_search_requests(claimed, ok)
+        except Exception as exc:
+            log.warning("não consegui fechar os pedidos de busca: %s", exc)
+
+
+def pipeline(db: Database) -> None:
     claude = anthropic.Anthropic()
     triage_model = os.getenv("CLAUDE_TRIAGE_MODEL", "claude-haiku-5-5")
     match_model = os.getenv("CLAUDE_MATCH_MODEL", "claude-haiku-5-5")

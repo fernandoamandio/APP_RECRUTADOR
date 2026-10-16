@@ -5,13 +5,16 @@ Glassdoor proíbem isso. Não ligar esta fonte numa versão comercial do app.
 
 Só entra na rodada quando existe o secret APIFY_TOKEN. Configuração por variáveis:
   APIFY_ACTOR        actor no formato dono/nome (padrão abaixo); qualquer actor com saída JobSpy serve
-  APIFY_MAX_RESULTS  vagas por site e por busca (padrão 10) — controla o custo, cobrado por resultado
+  APIFY_MAX_RESULTS  total de vagas por rodada (padrão 20) — controla o custo, cobrado por resultado.
+                     1/4 são vagas no Brasil e 3/4 remotas em outros países (20 → 5 + 15)
+  APIFY_BR_RESULTS   opcional: quantas das vagas do total são do Brasil (substitui a divisão 1/4)
   APIFY_SITES        sites separados por vírgula (padrão linkedin,indeed,glassdoor)
 """
 
 from __future__ import annotations
 
 import hashlib
+import math
 import logging
 import time
 from datetime import datetime, timezone
@@ -28,46 +31,66 @@ API = "https://api.apify.com/v2"
 DEFAULT_ACTOR = "iskoren/multi-job-board-scraper"
 INTERVAL = {"yearly": "year", "monthly": "month", "hourly": "hour", "weekly": None, "daily": None}
 
-# Duas buscas por termo: vagas no Brasil e vagas remotas no exterior
+# Duas buscas por termo: vagas no Brasil e vagas remotas em outros países
 SCOPES = [
-    {"code": "BR", "location": "Brazil", "countryIndeed": "brazil", "isRemote": False},
-    {"code": None, "location": "", "countryIndeed": "usa", "isRemote": True},
+    {"key": "br", "code": "BR", "location": "Brazil", "countryIndeed": "brazil", "isRemote": False},
+    {"key": "remote", "code": None, "location": "", "countryIndeed": "usa", "isRemote": True},
 ]
 
 
 class ApifyJobsSource(JobSource):
     name = "apify"
 
-    def __init__(self, client: httpx.Client, token: str, actor: str = DEFAULT_ACTOR, max_results: int = 10,
-                 sites: list[str] | None = None, max_terms: int = 2, hours_old: int = 48,
+    def __init__(self, client: httpx.Client, token: str, actor: str = DEFAULT_ACTOR, br_results: int = 5,
+                 remote_results: int = 15, sites: list[str] | None = None, max_terms: int = 2, hours_old: int = 48,
                  max_wait_seconds: int = 600):
         super().__init__(client)
         self.headers = {"Authorization": f"Bearer {token}"}
         self.actor = actor.replace("/", "~")  # a API usa dono~nome
-        self.max_results = max_results
+        self.budget = {"br": br_results, "remote": remote_results}  # vagas por rodada em cada escopo
         self.sites = sites or ["linkedin", "indeed", "glassdoor"]
         self.max_terms = max_terms
         self.hours_old = hours_old
         self.max_wait = max_wait_seconds
 
     def fetch(self, search_terms: list[str], tags: list[str]) -> list[RawJob]:
+        terms = search_terms[: self.max_terms]
         jobs: list[RawJob] = []
-        for term in search_terms[: self.max_terms]:
-            for scope in SCOPES:
+        for scope in SCOPES:
+            budget = self.budget[scope["key"]]
+            if budget <= 0 or not terms:
+                continue
+            # O actor limita por site e por busca; pede o mínimo que cobre o total e corta no fim
+            per_site = max(1, math.ceil(budget / (len(terms) * len(self.sites))))
+            found: list[RawJob] = []
+            for term in terms:
                 payload = {
                     "searchTerm": term,
                     "location": scope["location"],
                     "countryIndeed": scope["countryIndeed"],
                     "isRemote": scope["isRemote"],
                     "sites": self.sites,
-                    "maxResults": self.max_results,
+                    "maxResults": per_site,
                     "hoursOld": self.hours_old,
                     "descriptionFormat": "markdown",
                     "linkedinFetchDescription": True,
                 }
-                items = self._run(payload)
-                jobs.extend(self.parse(items, scope["code"]))
+                found.extend(self.parse(self._run(payload), scope["code"]))
+            jobs.extend(self.pick(found, scope["key"], budget))
         return jobs
+
+    @staticmethod
+    def pick(found: list[RawJob], scope: str, budget: int) -> list[RawJob]:
+        """Mantém só as do escopo (Brasil / outros países), sem repetir, as mais recentes primeiro."""
+        seen: set[str] = set()
+        out = []
+        oldest = datetime.min.replace(tzinfo=timezone.utc)
+        for j in sorted(found, key=lambda j: j.published_at or oldest, reverse=True):
+            in_scope = j.country == "BR" if scope == "br" else j.country != "BR"
+            if in_scope and j.url not in seen:
+                seen.add(j.url)
+                out.append(j)
+        return out[:budget]
 
     def _run(self, payload: dict) -> list[dict]:
         """Inicia o actor, espera terminar (até max_wait) e lê o dataset."""
@@ -104,7 +127,7 @@ class ApifyJobsSource(JobSource):
                                                       location.get("country")) if v)
             remote = bool(j.get("is_remote"))
             country = infer_country(location)
-            if country is None and scope_country and not remote:
+            if country is None and scope_country:  # achada na busca do Brasil, sem local informado
                 country = scope_country
             posted = j.get("date_posted")
             published = None

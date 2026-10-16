@@ -6,6 +6,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'countries.dart';
 import 'geo.dart';
 import 'models.dart';
+import 'search_status.dart';
 
 final supabaseProvider = Provider<SupabaseClient>((_) => Supabase.instance.client);
 final repositoryProvider = Provider((ref) => Repository(ref.watch(supabaseProvider)));
@@ -104,6 +105,24 @@ class Repository {
     // As 200 de maior nota entram; a ordem de exibição (país e data) é feita em sortFeed
     final rows = await q.order('score', ascending: false).limit(200);
     return rows.map(JobMatch.fromRow).toList();
+  }
+
+  /// Pede uma rodada do worker (o banco ignora se houve busca nas últimas 3 horas).
+  Future<SearchStatus> requestSearch() async {
+    final res = await sb.rpc('request_job_search');
+    return SearchStatus.fromJson(Map<String, dynamic>.from(res as Map));
+  }
+
+  /// Último pedido de busca deste usuário.
+  Future<SearchStatus?> latestSearch() async {
+    final row = await sb
+        .from('search_requests')
+        .select('status, requested_at, finished_at')
+        .eq('user_id', uid)
+        .order('requested_at', ascending: false)
+        .limit(1)
+        .maybeSingle();
+    return row == null ? null : SearchStatus.fromJson(row);
   }
 
   Future<JobMatch> job(String jobId) async {

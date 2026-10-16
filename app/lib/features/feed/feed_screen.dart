@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../auth/auth_service.dart';
 import '../../data/models.dart';
 import '../../data/repository.dart';
+import '../../data/search_status.dart';
 import '../../theme.dart';
 import '../../notifications.dart';
 import '../../widgets/app_nav.dart';
@@ -20,11 +21,25 @@ class FeedScreen extends ConsumerStatefulWidget {
 }
 
 class _FeedScreenState extends ConsumerState<FeedScreen> {
+  late final AppLifecycleListener _lifecycle;
+
   @override
   void initState() {
     super.initState();
-    // Android 13+: pede permissão para avisar de vagas novas (o sistema só pergunta uma vez)
-    WidgetsBinding.instance.addPostFrameCallback((_) => requestNotificationPermission().catchError((_) {}));
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      // Android 13+: pede permissão para avisar de vagas novas (o sistema só pergunta uma vez)
+      requestNotificationPermission().catchError((_) {});
+      // A busca de vagas roda quando o app abre (no máximo uma a cada 3 horas)
+      ref.read(searchStatusProvider.notifier).requestOnOpen();
+    });
+    // Voltar para o app depois de um tempo também conta como abrir
+    _lifecycle = AppLifecycleListener(onResume: () => ref.read(searchStatusProvider.notifier).requestOnOpen());
+  }
+
+  @override
+  void dispose() {
+    _lifecycle.dispose();
+    super.dispose();
   }
 
   @override
@@ -69,6 +84,7 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
                   );
                 },
               ),
+              const _SearchBanner(),
               const SizedBox(height: 12),
               Wrap(spacing: 8, runSpacing: 4, children: [
                 chip('Todas', null),
@@ -82,7 +98,7 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
                 loading: () => [const Padding(padding: EdgeInsets.all(48), child: Center(child: CircularProgressIndicator()))],
                 error: (e, _) => [Text('Não foi possível carregar o feed: $e')],
                 data: (groups) => groups.isEmpty
-                    ? [const Text('Nenhuma vaga ainda. A busca roda a cada 6 horas; volte mais tarde.')]
+                    ? [const Text('Nenhuma vaga ainda. A busca começa quando você abre o app e leva uns 10 minutos.')]
                     : [for (final g in groups) _CountrySection(g)],
               ),
             ],
@@ -91,6 +107,45 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
       ),
       bottomNavigationBar: const AppNav(index: 0),
     );
+  }
+}
+
+/// Aviso de busca em andamento, ou de quando foi a última busca.
+class _SearchBanner extends ConsumerWidget {
+  const _SearchBanner();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final s = ref.watch(searchStatusProvider);
+    if (s == null) return const SizedBox.shrink();
+    if (s.searching) {
+      return const Card(
+        margin: EdgeInsets.only(top: 12),
+        color: AppColors.remoteTint,
+        child: ListTile(
+          leading: SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2.5)),
+          title: Text('Procurando vagas novas'),
+          subtitle: Text('Leva uns 10 minutos. Pode fechar o app: você recebe uma notificação.'),
+        ),
+      );
+    }
+    final last = s.finishedAt ?? s.requestedAt;
+    if (last == null) return const SizedBox.shrink();
+    final text = s.status == 'failed'
+        ? 'A última busca falhou; a próxima abertura do app tenta de novo.'
+        : 'Última busca ${_ago(last)}. Uma nova roda ao abrir o app, a cada 3 horas no máximo.';
+    return Padding(
+      padding: const EdgeInsets.only(top: 8),
+      child: Text(text, style: const TextStyle(fontSize: 12, color: AppColors.quiet)),
+    );
+  }
+
+  static String _ago(DateTime d) {
+    final m = DateTime.now().difference(d.toLocal()).inMinutes;
+    if (m < 1) return 'agora há pouco';
+    if (m < 60) return 'há $m min';
+    final h = m ~/ 60;
+    return h < 24 ? 'há $h h' : 'há ${h ~/ 24} ${h ~/ 24 == 1 ? 'dia' : 'dias'}';
   }
 }
 

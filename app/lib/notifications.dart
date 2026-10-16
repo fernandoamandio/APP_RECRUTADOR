@@ -10,7 +10,7 @@ import 'config.dart';
 
 /// Avisa no celular quando o worker encontra vagas novas.
 ///
-/// O worker roda 2x por dia no GitHub. Uma tarefa em segundo plano do Android (WorkManager)
+/// O worker roda no GitHub quando o app é aberto. Uma tarefa em segundo plano do Android (WorkManager)
 /// confere o banco a cada ~2 horas e mostra uma notificação local se houver vagas novas
 /// desde a última conferência. Não usa Firebase: nada a configurar fora do app.
 const _taskName = 'checar-vagas-novas';
@@ -40,6 +40,16 @@ Future<void> setupJobNotifications() async {
     existingWorkPolicy: ExistingPeriodicWorkPolicy.keep,
   );
 }
+
+/// Depois de pedir uma busca: confere daqui a ~15 minutos, quando o worker já deve ter terminado,
+/// em vez de esperar a conferência periódica de 2 horas.
+Future<void> scheduleCheckAfterSearch() => Workmanager().registerOneOffTask(
+      'checar-apos-busca',
+      _taskName,
+      initialDelay: const Duration(minutes: 15),
+      constraints: Constraints(networkType: NetworkType.connected),
+      existingWorkPolicy: ExistingWorkPolicy.replace,
+    );
 
 /// Android 13+ exige pedir permissão para notificar. Chamado quando o feed abre.
 Future<void> requestNotificationPermission() async {
