@@ -32,7 +32,7 @@ jobs:
           }
           # Resumo enxuto (o GitHub mostra no máximo 10 anotações de cada tipo por etapa)
           echo "::notice::Fontes: $(grep -oE 'sources.base: [a-z]+: [0-9]+' out.txt | sed 's/sources.base: //; s/: /=/' | paste -sd ' ' -)"
-          grep -E "recrutador: " out.txt | sed -E 's/^.*recrutador: //' | sed 's/^/::notice::/' || true
+          grep -E "recrutador: |apify: (Brasil|exterior)" out.txt | sed -E 's/^.*(recrutador|apify_jobs): //' | sed 's/^/::notice::/' || true
           grep -E " WARNING " out.txt | sed -E 's/^.* WARNING //' | head -n 10 | sed 's/^/::warning::/' || true
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}

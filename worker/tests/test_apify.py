@@ -77,6 +77,6 @@ def test_budget_split_brazil_and_abroad():
     abroad = [j for j in jobs if j.country != "BR"]
     assert len(br) == 5 and len(abroad) == 15
     assert len(fake.payloads) == 4  # 2 termos x 2 escopos
-    assert [p["maxResults"] for p in fake.payloads] == [1, 1, 3, 3]  # o mínimo que cobre 5 e 15
+    assert [p["maxResults"] for p in fake.payloads] == [2, 2, 4, 4]  # 5 e 15 com folga de 50%
     dates = [j.published_at for j in abroad]
     assert dates == sorted(dates, reverse=True)  # mais recentes primeiro

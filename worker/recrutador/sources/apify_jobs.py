@@ -60,8 +60,9 @@ class ApifyJobsSource(JobSource):
             budget = self.budget[scope["key"]]
             if budget <= 0 or not terms:
                 continue
-            # O actor limita por site e por busca; pede o mínimo que cobre o total e corta no fim
-            per_site = max(1, math.ceil(budget / (len(terms) * len(self.sites))))
+            # O actor limita por site e por busca. Pede 50% a mais (alguns sites voltam vazios ou
+            # repetem vagas) e corta no total pedido
+            per_site = max(1, math.ceil(budget * 1.5 / (len(terms) * len(self.sites))))
             found: list[RawJob] = []
             for term in terms:
                 payload = {
@@ -76,7 +77,10 @@ class ApifyJobsSource(JobSource):
                     "linkedinFetchDescription": True,
                 }
                 found.extend(self.parse(self._run(payload), scope["code"]))
-            jobs.extend(self.pick(found, scope["key"], budget))
+            picked = self.pick(found, scope["key"], budget)
+            log.info("apify: %s %d de %d (%d recebidas)", "Brasil" if scope["key"] == "br" else "exterior remoto",
+                     len(picked), budget, len(found))
+            jobs.extend(picked)
         return jobs
 
     @staticmethod
