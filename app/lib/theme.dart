@@ -1,10 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-/// Paleta das telas do protótipo: azul = remoto do Brasil, laranja = patrocínio de visto.
+/// Paleta: azul-marinho e laranja da Coders4You na marca e nos botões;
+/// azul = remoto do Brasil e laranja escuro = patrocínio de visto nos selos das vagas.
 class AppColors {
+  static const brandNavy = Color(0xFF0F1B2D);
+  static const brandOrange = Color(0xFFEA580C);
+  static const brandOrangeDark = Color(0xFFC2410C); // laranja com contraste para texto sobre fundo claro
   static const ground = Color(0xFFF5F6F3);
-  static const ink = Color(0xFF14181F);
+  static const ink = brandNavy;
   static const quiet = Color(0xFF4B5260);
   static const line = Color(0xFFE2E4DE);
   static const remote = Color(0xFF1D4ED8);
@@ -16,7 +20,13 @@ class AppColors {
 ThemeData buildTheme() {
   final base = ThemeData(
     useMaterial3: true,
-    colorScheme: ColorScheme.fromSeed(seedColor: AppColors.remote, surface: AppColors.ground),
+    colorScheme: ColorScheme.fromSeed(seedColor: AppColors.brandNavy, surface: AppColors.ground).copyWith(
+      primary: AppColors.brandNavy,
+      onPrimary: Colors.white,
+      secondary: AppColors.brandOrangeDark,
+      onSecondary: Colors.white,
+      tertiary: AppColors.brandOrange,
+    ),
     scaffoldBackgroundColor: AppColors.ground,
   );
   final body = GoogleFonts.manropeTextTheme(base.textTheme).apply(
@@ -34,6 +44,15 @@ ThemeData buildTheme() {
         shape: const StadiumBorder(),
         textStyle: GoogleFonts.manrope(fontSize: 16, fontWeight: FontWeight.w700),
       ),
+    ),
+    textButtonTheme: TextButtonThemeData(
+      style: TextButton.styleFrom(foregroundColor: AppColors.brandOrangeDark),
+    ),
+    progressIndicatorTheme: const ProgressIndicatorThemeData(color: AppColors.brandOrange),
+    appBarTheme: const AppBarTheme(backgroundColor: AppColors.ground, foregroundColor: AppColors.brandNavy),
+    inputDecorationTheme: const InputDecorationTheme(
+      focusedBorder: OutlineInputBorder(borderSide: BorderSide(color: AppColors.brandOrange, width: 2)),
+      floatingLabelStyle: TextStyle(color: AppColors.brandOrangeDark),
     ),
     cardTheme: const CardThemeData(
       color: Colors.white,

@@ -1,4 +1,4 @@
-# APP_RECRUTADOR — App de Vagas Globais
+# APP_RECRUTADOR — C4Y Jobs (Coders4You)
 
 App mobile que lê o currículo e a cover letter do profissional, entende o perfil com a API do Claude e entrega vagas nacionais e internacionais que permitem **trabalhar remoto do Brasil** ou que **patrocinam visto**. Para cada vaga, sugere uma pretensão salarial calibrada pelo custo de vida do destino e pela situação familiar do usuário.
 

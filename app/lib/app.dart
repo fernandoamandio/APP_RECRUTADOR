@@ -16,6 +16,7 @@ import 'features/onboarding/household_screen.dart';
 import 'features/profile/ai_settings_screen.dart';
 import 'features/profile/career_profile_screen.dart';
 import 'theme.dart';
+import 'widgets/brand.dart';
 
 final _router = GoRouter(
   initialLocation: '/feed',
@@ -68,7 +69,7 @@ class RecrutadorApp extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return MaterialApp.router(
-      title: 'Vagas Globais',
+      title: productName,
       theme: buildTheme(),
       routerConfig: _router,
       debugShowCheckedModeBanner: false,

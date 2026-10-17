@@ -20,7 +20,7 @@ const _channelId = 'vagas_novas';
 final _plugin = FlutterLocalNotificationsPlugin();
 
 Future<void> _initPlugin() => _plugin.initialize(
-      settings: const InitializationSettings(android: AndroidInitializationSettings('@mipmap/ic_launcher')),
+      settings: const InitializationSettings(android: AndroidInitializationSettings('@drawable/ic_notification')),
     );
 
 /// Chamado no início do app: prepara as notificações e agenda a conferência periódica.
@@ -113,7 +113,8 @@ Future<void> checkNewJobs() async {
     body: 'Destaque: ${job['title']} · ${job['company']}${pct != null ? ' ($pct% de match)' : ''}',
     notificationDetails: const NotificationDetails(
       android: AndroidNotificationDetails(_channelId, 'Vagas novas',
-          channelDescription: 'Aviso quando a busca encontra vagas novas', importance: Importance.high),
+          channelDescription: 'Aviso quando a busca encontra vagas novas', importance: Importance.high,
+          icon: '@drawable/ic_notification', color: Color(0xFFEA580C)),
     ),
   );
 }

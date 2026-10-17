@@ -34,7 +34,9 @@ jobs:
           grep -q 'android.permission.INTERNET' "$manifest" || \
             sed -i 's#<application#<uses-permission android:name="android.permission.INTERNET"/>\n    <application#' "$manifest"
           # Nome que aparece embaixo do ícone
-          sed -i 's#android:label="recrutador"#android:label="Vagas Globais"#' "$manifest"
+          sed -i 's#android:label="recrutador"#android:label="C4Y Jobs"#' "$manifest"
+          # Identidade Coders4You: ícone "4_" (adaptativo), ícone de notificação e tela de abertura
+          cp -r branding/android/res/. android/app/src/main/res/
           # Notificações locais exigem "core library desugaring" (flutter_local_notifications)
           gradle=android/app/build.gradle.kts
           sed -i 's#compileOptions {#compileOptions {\n        isCoreLibraryDesugaringEnabled = true#' "$gradle"
@@ -56,7 +58,7 @@ jobs:
               | grep -v '^--$' | head -n 45 | sed 's/^/::error::/'
             exit 1
           }
-          cp build/app/outputs/flutter-apk/app-release.apk vagas-globais.apk
+          cp build/app/outputs/flutter-apk/app-release.apk c4y-jobs.apk
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
@@ -65,12 +67,12 @@ jobs:
       - name: Verificar APK
         run: |
           BT=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)
-          "$BT/apksigner" verify --verbose --print-certs vagas-globais.apk 2>&1 | grep -E "Verified|Signer #1 certificate DN|ERROR|WARNING" | head -6 | sed 's/^/::notice::/'
-          "$BT/aapt2" dump badging vagas-globais.apk | grep -E "^package:|sdkVersion|targetSdkVersion|native-code" | sed 's/^/::notice::/'
-          echo "::notice::tamanho $(stat -c %s vagas-globais.apk) bytes"
+          "$BT/apksigner" verify --verbose --print-certs c4y-jobs.apk 2>&1 | grep -E "Verified|Signer #1 certificate DN|ERROR|WARNING" | head -6 | sed 's/^/::notice::/'
+          "$BT/aapt2" dump badging c4y-jobs.apk | grep -E "^package:|sdkVersion|targetSdkVersion|native-code" | sed 's/^/::notice::/'
+          echo "::notice::tamanho $(stat -c %s c4y-jobs.apk) bytes"
 
       - uses: actions/upload-artifact@v4
         with:
-          name: vagas-globais-apk
-          path: app/vagas-globais.apk
+          name: c4y-jobs-apk
+          path: app/c4y-jobs.apk
           retention-days: 14

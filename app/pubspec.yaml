@@ -1,5 +1,5 @@
 name: recrutador
-description: App de Vagas Globais — vagas remotas do Brasil e com patrocínio de visto.
+description: C4Y Jobs (Coders4You) — vagas remotas do Brasil e com patrocínio de visto.
 publish_to: "none"
 version: 0.1.0+1
 
@@ -28,3 +28,5 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+  assets:
+    - assets/brand/

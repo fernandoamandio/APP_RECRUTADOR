@@ -7,6 +7,7 @@ import '../../data/repository.dart';
 import '../feed/feed_screen.dart' show confirmSignOut;
 import '../../theme.dart';
 import '../../widgets/app_nav.dart';
+import '../../widgets/brand.dart';
 
 /// Perfil gerado pela IA do usuário a partir do currículo. O usuário revisa e confirma antes da busca.
 class CareerProfileScreen extends ConsumerStatefulWidget {
@@ -151,6 +152,7 @@ class _CareerProfileScreenState extends ConsumerState<CareerProfileScreen> {
                   onTap: () => confirmSignOut(context),
                 ),
               ]),
+              const BrandFooter(),
             ],
           );
         },

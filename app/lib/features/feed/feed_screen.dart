@@ -9,6 +9,7 @@ import '../../data/search_status.dart';
 import '../../theme.dart';
 import '../../notifications.dart';
 import '../../widgets/app_nav.dart';
+import '../../widgets/brand.dart';
 import '../../widgets/eligibility_badge.dart';
 import '../../widgets/match_badge.dart';
 import '../../widgets/money.dart';
@@ -50,14 +51,16 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
           child: ListView(
             padding: const EdgeInsets.fromLTRB(20, 24, 20, 24),
             children: [
-              Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Expanded(child: Text('Melhores vagas por país', style: t.headlineMedium)),
+              Row(children: [
+                const Expanded(child: Align(alignment: Alignment.centerLeft, child: BrandHeader(iconSize: 36, nameSize: 17))),
                 IconButton(
                   tooltip: 'Sair da conta',
                   icon: const Icon(Icons.logout),
                   onPressed: () => confirmSignOut(context),
                 ),
               ]),
+              const SizedBox(height: 18),
+              Text('Melhores vagas por país', style: t.headlineMedium),
               const Padding(
                 padding: EdgeInsets.only(top: 4),
                 child: Text('As $topPerCountry de maior match em cada país, com o seu país primeiro',

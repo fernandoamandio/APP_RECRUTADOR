@@ -6,6 +6,7 @@ import '../../auth/auth_service.dart';
 import '../../auth/password_policy.dart';
 import '../../auth/password_widgets.dart';
 import '../../theme.dart';
+import '../../widgets/brand.dart';
 
 /// Login com e-mail e senha. Após 5 senhas erradas a conta é bloqueada
 /// (desbloqueio por "Esqueci minha senha").
@@ -79,6 +80,8 @@ class _SignInScreenState extends State<SignInScreen> {
         child: ListView(
           padding: const EdgeInsets.all(24),
           children: [
+            const SizedBox(height: 16),
+            const BrandHeader(iconSize: 52, nameSize: 22),
             const SizedBox(height: 32),
             Text('Vagas do mundo,\nfiltradas para quem está no Brasil.', style: t.headlineMedium),
             const SizedBox(height: 12),
