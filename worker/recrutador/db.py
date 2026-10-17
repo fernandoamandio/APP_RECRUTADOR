@@ -224,7 +224,12 @@ class Database:
 
     def ai_client(self, user_id: str) -> AIClient | None:
         """Provedor, modelo e chave de IA que o usuário cadastrou no app (chave guardada no Vault)."""
-        rows = self.sb.rpc("ai_credentials", {"p_user": user_id}).execute().data or []
+        try:
+            rows = self.sb.rpc("ai_credentials", {"p_user": user_id}).execute().data or []
+        except Exception as exc:  # migração ainda não aplicada
+            import logging
+            logging.getLogger(__name__).warning("credenciais de IA indisponíveis: %s", exc)
+            return None
         row = rows[0] if isinstance(rows, list) and rows else (rows if isinstance(rows, dict) else None)
         if not row or not row.get("api_key"):
             return None
