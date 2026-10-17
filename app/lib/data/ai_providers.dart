@@ -37,12 +37,13 @@ class AiKeyException implements Exception {
 Future<List<AiModel>> listModels(AiProvider provider, String apiKey) async {
   final http.Response resp;
   try {
-    resp = switch (provider) {
-      AiProvider.anthropic => await http.get(Uri.parse('https://api.anthropic.com/v1/models?limit=100'),
+    final request = switch (provider) {
+      AiProvider.anthropic => http.get(Uri.parse('https://api.anthropic.com/v1/models?limit=100'),
           headers: {'x-api-key': apiKey, 'anthropic-version': '2023-06-01'}),
-      AiProvider.openai => await http.get(Uri.parse('https://api.openai.com/v1/models'),
+      AiProvider.openai => http.get(Uri.parse('https://api.openai.com/v1/models'),
           headers: {'Authorization': 'Bearer $apiKey'}),
-    }.timeout(const Duration(seconds: 20));
+    };
+    resp = await request.timeout(const Duration(seconds: 20));
   } catch (_) {
     throw AiKeyException('Não consegui falar com ${provider.label}. Confira a internet e tente de novo.');
   }
