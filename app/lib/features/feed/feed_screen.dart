@@ -50,7 +50,14 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
           child: ListView(
             padding: const EdgeInsets.fromLTRB(20, 24, 20, 24),
             children: [
-              Text('Melhores vagas por país', style: t.headlineMedium),
+              Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Expanded(child: Text('Melhores vagas por país', style: t.headlineMedium)),
+                IconButton(
+                  tooltip: 'Sair da conta',
+                  icon: const Icon(Icons.logout),
+                  onPressed: () => confirmSignOut(context),
+                ),
+              ]),
               const Padding(
                 padding: EdgeInsets.only(top: 4),
                 child: Text('As $topPerCountry de maior match em cada país, com o seu país primeiro',
@@ -200,6 +207,22 @@ class _SearchPanelState extends ConsumerState<_SearchPanel> {
       ]),
     );
   }
+}
+
+/// Pede confirmação e encerra a sessão; o roteador leva para a tela de login.
+Future<void> confirmSignOut(BuildContext context) async {
+  final ok = await showDialog<bool>(
+    context: context,
+    builder: (ctx) => AlertDialog(
+      title: const Text('Sair da conta?'),
+      content: const Text('Você vai precisar do e-mail e da senha para entrar de novo.'),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancelar')),
+        FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Sair')),
+      ],
+    ),
+  );
+  if (ok == true) await authService.auth.signOut();
 }
 
 class _CountrySection extends StatelessWidget {

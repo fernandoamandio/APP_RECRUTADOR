@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../auth/auth_service.dart';
 import '../../data/repository.dart';
+import '../feed/feed_screen.dart' show confirmSignOut;
 import '../../theme.dart';
 import '../../widgets/app_nav.dart';
 
@@ -147,7 +148,7 @@ class _CareerProfileScreenState extends ConsumerState<CareerProfileScreen> {
                   contentPadding: EdgeInsets.zero,
                   leading: const Icon(Icons.logout),
                   title: const Text('Sair'),
-                  onTap: () => authService.auth.signOut(),
+                  onTap: () => confirmSignOut(context),
                 ),
               ]),
             ],
