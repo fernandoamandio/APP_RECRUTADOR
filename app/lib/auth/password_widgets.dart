@@ -97,7 +97,12 @@ class EmailCodeField extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      Text('Enviamos um código para $email. Ele expira em 1 hora. Confira também a caixa de spam.'),
+      // E-mail em linha própria: com o ponto final logo depois, parecia fazer parte do endereço
+      const Text('Enviamos um código de 6 dígitos para:'),
+      const SizedBox(height: 4),
+      SelectableText(email, style: const TextStyle(fontWeight: FontWeight.w700)),
+      const SizedBox(height: 4),
+      const Text('Ele expira em 1 hora. Confira também a caixa de spam e o lixo eletrônico.'),
       const SizedBox(height: 16),
       TextField(
         controller: controller,

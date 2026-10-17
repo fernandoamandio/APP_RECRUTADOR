@@ -86,7 +86,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
 
   Future<void> _resend({bool silent = false}) => _run(() async {
         await authService.auth.resend(type: OtpType.signup, email: _emailValue);
-        if (!silent && mounted) showError(context, 'Enviamos um novo código para $_emailValue.');
+        if (!silent && mounted) showError(context, 'Novo código enviado para $_emailValue');
       });
 
   @override
