@@ -1,4 +1,4 @@
-"""Lê o currículo em PDF (arquivo próprio ou PDF exportado do LinkedIn) e a cover letter com o Claude
+"""Lê o currículo em PDF (arquivo próprio ou PDF exportado do LinkedIn) e a cover letter com a IA do usuário
 e devolve o perfil profissional que alimenta a busca, a pontuação e o match.
 """
 
@@ -6,9 +6,7 @@ from __future__ import annotations
 
 import base64
 
-import anthropic
-
-from .llm import call_tool
+from .llm import AIClient
 
 PROFILE_TOOL = {
     "name": "save_career_profile",
@@ -57,18 +55,18 @@ def _pdf_block(title: str, pdf: bytes) -> dict:
                        "data": base64.standard_b64encode(pdf).decode()}}
 
 
-def extract_profile(client: anthropic.Anthropic, model: str, cv_pdf: bytes,
+def extract_profile(ai: AIClient, cv_pdf: bytes,
                     cover_letter_pdf: bytes | None = None) -> dict:
     content = [_pdf_block("Currículo", cv_pdf)]
     if cover_letter_pdf:
         content.append(_pdf_block("Cover letter", cover_letter_pdf))
     content.append({"type": "text", "text": "Extraia o perfil profissional destes documentos."})
-    return call_tool(client, model=model, system=SYSTEM, tool=PROFILE_TOOL,
+    return ai.call_tool(system=SYSTEM, tool=PROFILE_TOOL,
                      messages=[{"role": "user", "content": content}], max_tokens=2048)
 
 
 def to_career_profile_row(user_id: str, doc_id: str, p: dict) -> dict:
-    """Converte a saída do Claude na linha de career_profile."""
+    """Converte a saída da IA na linha de career_profile."""
     return {
         "user_id": user_id,
         "target_titles": p.get("target_titles") or [],

@@ -13,6 +13,7 @@ import 'features/feed/feed_screen.dart';
 import 'features/job/job_detail_screen.dart';
 import 'features/onboarding/documents_screen.dart';
 import 'features/onboarding/household_screen.dart';
+import 'features/profile/ai_settings_screen.dart';
 import 'features/profile/career_profile_screen.dart';
 import 'theme.dart';
 
@@ -47,6 +48,7 @@ final _router = GoRouter(
     GoRoute(path: '/documents', builder: (_, __) => const DocumentsScreen()),
     GoRoute(path: '/onboarding/household', builder: (_, __) => const HouseholdScreen()),
     GoRoute(path: '/profile', builder: (_, __) => const CareerProfileScreen()),
+    GoRoute(path: '/ai-settings', builder: (_, __) => const AiSettingsScreen()),
     GoRoute(path: '/feed', builder: (_, __) => const FeedScreen()),
     GoRoute(path: '/applications', builder: (_, __) => const ApplicationsScreen()),
     GoRoute(path: '/job/:id', builder: (_, s) => JobDetailScreen(jobId: s.pathParameters['id']!)),

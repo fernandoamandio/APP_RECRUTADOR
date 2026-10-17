@@ -1,6 +1,7 @@
 """Autoteste da análise de currículo e do match, sem gravar nada no banco.
 
-Gera um PDF fictício de currículo, pede ao Claude o perfil e um match com uma vaga de exemplo.
+Gera um PDF fictício de currículo, pede à IA o perfil e um match com uma vaga de exemplo.
+Usa o provedor, o modelo e a chave do primeiro usuário que cadastrou a IA no app.
 Uso:  python -m recrutador.selftest
 """
 
@@ -9,8 +10,9 @@ from __future__ import annotations
 import logging
 import os
 
-import anthropic
+from dotenv import load_dotenv
 
+from .db import Database
 from .matching import CandidateMaterial, match
 from .models import RawJob
 from .profile_extract import extract_profile
@@ -53,10 +55,14 @@ def tiny_pdf(lines: list[str]) -> bytes:
 
 def run() -> None:
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
-    client = anthropic.Anthropic()
+    load_dotenv()
+    db = Database(os.environ["SUPABASE_URL"], os.environ["SUPABASE_SERVICE_ROLE_KEY"])
+    ai = next((a for a in map(db.ai_client, db.users_with_ai()) if a), None)
+    assert ai, "nenhum usuário cadastrou provedor e chave de IA no app"
+    log.info("selftest IA: %s", ai.label)
     pdf = tiny_pdf(CV_LINES)
 
-    profile = extract_profile(client, os.getenv("CLAUDE_PROFILE_MODEL", "claude-sonnet-5-5"), pdf)
+    profile = extract_profile(ai, pdf)
     log.info("selftest perfil: cargos=%s | senioridade=%s | stack=%s | busca=%s",
              profile.get("target_titles"), profile.get("seniority"),
              [s.get("name") for s in profile.get("stack", [])], profile.get("search_terms"))
@@ -65,7 +71,7 @@ def run() -> None:
     job = RawJob(source="selftest", external_id="1", url="", title="Senior Oracle PL/SQL Developer",
                  company="Empresa Exemplo", country="BR", city="Campinas, SP",
                  description="Requisitos: PL/SQL avançado, Oracle 19c, tuning de SQL. Desejável: Python e AWS.")
-    result = match(client, os.getenv("CLAUDE_MATCH_MODEL", "claude-haiku-5-5"), CandidateMaterial(cv_pdf=pdf), job)
+    result = match(ai, CandidateMaterial(cv_pdf=pdf), job)
     log.info("selftest match: %d%% | atende=%s | falta=%s", result.percent, result.strengths, result.gaps)
     assert 0 <= result.percent <= 100
     log.info("selftest OK")

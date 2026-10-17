@@ -10,7 +10,7 @@ import 'config.dart';
 
 /// Avisa no celular quando o worker encontra vagas novas.
 ///
-/// O worker roda no GitHub quando o app é aberto. Uma tarefa em segundo plano do Android (WorkManager)
+/// O worker roda no GitHub quando o usuário toca em "Buscar vagas". Uma tarefa em segundo plano do Android (WorkManager)
 /// confere o banco a cada ~2 horas e mostra uma notificação local se houver vagas novas
 /// desde a última conferência. Não usa Firebase: nada a configurar fora do app.
 const _taskName = 'checar-vagas-novas';

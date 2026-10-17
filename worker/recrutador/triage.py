@@ -1,4 +1,4 @@
-"""Triagem de elegibilidade com o Claude: a vaga serve para quem está no Brasil?
+"""Triagem de elegibilidade com a IA do usuário (Claude ou ChatGPT): a vaga serve para quem está no Brasil?
 
 Cada vaga é classificada UMA vez e o resultado é compartilhado entre todos os usuários.
 """
@@ -7,9 +7,7 @@ from __future__ import annotations
 
 import logging
 
-import anthropic
-
-from .llm import call_tool
+from .llm import AIClient
 from .models import Eligibility, RawJob, TriageResult
 from .sponsors import SponsorRegistry
 
@@ -60,7 +58,7 @@ def _job_prompt(job: RawJob) -> str:
     )
 
 
-def triage(client: anthropic.Anthropic, model: str, job: RawJob, sponsors: SponsorRegistry) -> TriageResult:
+def triage(ai: AIClient | None, job: RawJob, sponsors: SponsorRegistry) -> TriageResult:
     # Vaga que a fonte já localiza no Brasil: elegível sem gastar uma chamada de IA
     if job.country == "BR":
         location = job.city or "Brasil"
@@ -68,7 +66,7 @@ def triage(client: anthropic.Anthropic, model: str, job: RawJob, sponsors: Spons
                             confidence=1.0, model="rule:country=BR")
 
     registered = sponsors.is_registered(job.company, job.country)
-    data = call_tool(client, model=model, system=SYSTEM, tool=TRIAGE_TOOL, max_tokens=400,
+    data = ai.call_tool(system=SYSTEM, tool=TRIAGE_TOOL, max_tokens=400,
                      messages=[{"role": "user", "content": _job_prompt(job)}])
     category = Eligibility(data["category"])
 
@@ -81,5 +79,5 @@ def triage(client: anthropic.Anthropic, model: str, job: RawJob, sponsors: Spons
         evidence=data.get("evidence", "")[:400],
         confidence=float(data.get("confidence", 0.5)),
         sponsor_registered=registered,
-        model=model,
+        model=f"{ai.provider}:{ai.model}",
     )

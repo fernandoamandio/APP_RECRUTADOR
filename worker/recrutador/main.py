@@ -1,7 +1,8 @@
 """Uma rodada do worker: coleta → deduplicação → pré-filtro → triagem → pontuação → salário → match.
 
 Uso:  python -m recrutador.main
-Disparado pelo app ao ser aberto (search_requests) ou manualmente pela aba Actions
+Disparado pelo botão "Buscar vagas" do app (search_requests, 1 vez a cada 12 horas por usuário).
+Só processa quem pediu, com o provedor de IA e a chave que cada um cadastrou no app
 (.github/workflows/worker.yml).
 """
 
@@ -11,7 +12,6 @@ import logging
 import os
 from functools import lru_cache
 
-import anthropic
 import httpx
 from dotenv import load_dotenv
 
@@ -19,6 +19,7 @@ from .db import Database
 from .dedup import deduplicate, merge
 from .documents import process_documents
 from .geo import infer_country
+from .llm import AIAuthError, AIClient, AIError
 from .learning import apply_event
 from .matching import CandidateMaterial, match, profile_as_text
 from .models import Eligibility, RawJob
@@ -76,7 +77,7 @@ def run() -> None:
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 
     db = Database(os.environ["SUPABASE_URL"], os.environ["SUPABASE_SERVICE_ROLE_KEY"])
-    # Pedidos de busca feitos ao abrir o app: o app mostra "procurando vagas" até terminarem
+    # Pedidos do botão "Buscar vagas": o app mostra "procurando vagas" até terminarem
     try:
         claimed = db.claim_search_requests()
     except Exception as exc:  # tabela ainda não criada: segue sem acompanhar o pedido
@@ -84,32 +85,44 @@ def run() -> None:
         claimed = []
     ok = False
     try:
-        pipeline(db)
+        pipeline(db, sorted({r["user_id"] for r in claimed}))
         ok = True
     finally:
         try:
-            db.finish_search_requests(claimed, ok)
+            db.finish_search_requests([r["id"] for r in claimed], ok)
         except Exception as exc:
             log.warning("não consegui fechar os pedidos de busca: %s", exc)
 
 
-def pipeline(db: Database) -> None:
-    claude = anthropic.Anthropic()
-    triage_model = os.getenv("CLAUDE_TRIAGE_MODEL", "claude-haiku-5-5")
-    match_model = os.getenv("CLAUDE_MATCH_MODEL", "claude-haiku-5-5")
-    contact = os.getenv("CONTACT_EMAIL", "")
-    http = httpx.Client(timeout=30, headers={"User-Agent": f"recrutador-worker/0.1 ({contact})"})
+def pipeline(db: Database, requesters: list[str]) -> None:
+    if not requesters:
+        log.info("nenhum pedido de busca pendente; a busca começa pelo botão Buscar vagas do app")
+        return
 
     # Currículos e cover letters novos primeiro: podem criar ou mudar o perfil usado na busca
     try:
-        process_documents(db, claude, os.getenv("CLAUDE_PROFILE_MODEL", "claude-sonnet-5-5"), match_model)
+        process_documents(db)
     except Exception as exc:  # documentos não podem derrubar a rodada de vagas
         log.warning("processamento de documentos falhou: %s", exc)
 
-    users = db.confirmed_profiles()
+    # IA de cada usuário que pediu a busca (provedor, modelo e chave cadastrados no app)
+    ais: dict[str, AIClient] = {}
+    for uid in requesters:
+        ai = db.ai_client(uid)
+        if ai:
+            ais[uid] = ai
+            log.info("usuário %s: IA %s", uid[:8], ai.label)
+        else:
+            log.warning("usuário %s pediu busca sem chave de IA cadastrada no app", uid[:8])
+
+    users = [u for u in db.confirmed_profiles() if u["user_id"] in ais]
     if not users:
-        log.info("nenhum usuário com perfil confirmado; nada a fazer")
+        log.info("nenhum usuário com perfil confirmado e chave de IA entre os pedidos; nada a fazer")
         return
+    # A triagem de vagas novas é compartilhada: usa a IA do primeiro usuário da rodada
+    triage_ai = ais[users[0]["user_id"]]
+    contact = next((a.contact_email for a in ais.values() if a.contact_email), os.getenv("CONTACT_EMAIL", ""))
+    http = httpx.Client(timeout=30, headers={"User-Agent": f"recrutador-worker/0.1 ({contact})"})
     profiles = {u["user_id"]: db.to_career_profile(u) for u in users}
 
     # 1. Coleta: termos de todos os usuários, sem repetir
@@ -150,8 +163,11 @@ def pipeline(db: Database) -> None:
             log.warning("teto de triagem atingido; o restante fica para a próxima rodada")
             break
         try:
-            result = triage(claude, triage_model, jobs[h][0], sponsors)
-        except (anthropic.APIError, ValueError) as exc:
+            result = triage(triage_ai, jobs[h][0], sponsors)
+        except AIAuthError as exc:
+            log.warning("triagem interrompida: %s", exc)
+            break
+        except (AIError, ValueError) as exc:
             log.warning("triagem falhou para %s: %s", job_id, exc)
             continue
         db.save_eligibility(job_id, result)
@@ -195,7 +211,7 @@ def pipeline(db: Database) -> None:
         log.info("usuário %s: %d vagas no feed", uid[:8], saved)
 
         # 6. Match do currículo + cover letter com as vagas do feed (as de maior nota primeiro)
-        matched = run_matching(db, claude, match_model, uid, user)
+        matched = run_matching(db, ais[uid], uid, user)
         log.info("usuário %s: %d vagas com match calculado", uid[:8], matched)
 
 
@@ -209,7 +225,7 @@ def backfill_countries(db: Database) -> int:
     return fixed
 
 
-def run_matching(db: Database, claude: anthropic.Anthropic, model: str, uid: str, profile_row: dict) -> int:
+def run_matching(db: Database, ai: AIClient, uid: str, profile_row: dict) -> int:
     pending = db.pending_matches(uid, MAX_MATCH_PER_USER)
     log.info("usuário %s: %d vagas aguardando match", uid[:8], len(pending))
     if not pending:
@@ -225,8 +241,11 @@ def run_matching(db: Database, claude: anthropic.Anthropic, model: str, uid: str
             log.warning("match: vaga %s não encontrada", job_id)
             continue
         try:
-            result = match(claude, model, candidate, job)
-        except (anthropic.APIError, ValueError) as exc:
+            result = match(ai, candidate, job)
+        except AIAuthError as exc:
+            log.warning("usuário %s: match interrompido: %s", uid[:8], exc)
+            break
+        except (AIError, ValueError) as exc:
             log.warning("match falhou para %s: %s", job_id, exc)
             continue
         db.save_match_result(uid, job_id, result.percent, result.strengths, result.gaps)

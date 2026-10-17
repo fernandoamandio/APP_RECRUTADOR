@@ -21,25 +21,14 @@ class FeedScreen extends ConsumerStatefulWidget {
 }
 
 class _FeedScreenState extends ConsumerState<FeedScreen> {
-  late final AppLifecycleListener _lifecycle;
-
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       // Android 13+: pede permissão para avisar de vagas novas (o sistema só pergunta uma vez)
       requestNotificationPermission().catchError((_) {});
-      // A busca de vagas roda quando o app abre (no máximo uma a cada 3 horas)
-      ref.read(searchStatusProvider.notifier).requestOnOpen();
+      ref.read(searchStatusProvider.notifier).refresh();
     });
-    // Voltar para o app depois de um tempo também conta como abrir
-    _lifecycle = AppLifecycleListener(onResume: () => ref.read(searchStatusProvider.notifier).requestOnOpen());
-  }
-
-  @override
-  void dispose() {
-    _lifecycle.dispose();
-    super.dispose();
   }
 
   @override
@@ -84,7 +73,7 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
                   );
                 },
               ),
-              const _SearchBanner(),
+              const _SearchPanel(),
               const SizedBox(height: 12),
               Wrap(spacing: 8, runSpacing: 4, children: [
                 chip('Todas', null),
@@ -98,7 +87,7 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
                 loading: () => [const Padding(padding: EdgeInsets.all(48), child: Center(child: CircularProgressIndicator()))],
                 error: (e, _) => [Text('Não foi possível carregar o feed: $e')],
                 data: (groups) => groups.isEmpty
-                    ? [const Text('Nenhuma vaga ainda. A busca começa quando você abre o app e leva uns 10 minutos.')]
+                    ? [const Text('Nenhuma vaga ainda. Toque em Buscar vagas; a busca leva uns 15 minutos.')]
                     : [for (final g in groups) _CountrySection(g)],
               ),
             ],
@@ -110,14 +99,68 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
   }
 }
 
-/// Aviso de busca em andamento, ou de quando foi a última busca.
-class _SearchBanner extends ConsumerWidget {
-  const _SearchBanner();
+/// Botão "Buscar vagas" (1 vez a cada 12 horas) e a situação da busca.
+class _SearchPanel extends ConsumerStatefulWidget {
+  const _SearchPanel();
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_SearchPanel> createState() => _SearchPanelState();
+}
+
+class _SearchPanelState extends ConsumerState<_SearchPanel> {
+  bool _sending = false;
+
+  static String _when(DateTime d) {
+    final now = DateTime.now();
+    final hm = '${d.hour.toString().padLeft(2, '0')}:${d.minute.toString().padLeft(2, '0')}';
+    final sameDay = d.year == now.year && d.month == now.month && d.day == now.day;
+    final tomorrow = now.add(const Duration(days: 1));
+    if (sameDay) return 'hoje às $hm';
+    if (d.year == tomorrow.year && d.month == tomorrow.month && d.day == tomorrow.day) return 'amanhã às $hm';
+    final yesterday = now.subtract(const Duration(days: 1));
+    if (d.year == yesterday.year && d.month == yesterday.month && d.day == yesterday.day) return 'ontem às $hm';
+    return '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')} às $hm';
+  }
+
+  Future<void> _search() async {
+    setState(() => _sending = true);
+    try {
+      final s = await ref.read(searchStatusProvider.notifier).request();
+      if (!mounted) return;
+      final msg = switch (s.error) {
+        'no_ai_key' => 'Cadastre a sua chave de IA antes de buscar.',
+        'too_soon' => 'Você já buscou nas últimas 12 horas. Próxima busca ${_when(s.nextAllowedAt!)}.',
+        _ => s.searching ? 'Busca iniciada. Você recebe uma notificação quando terminar.' : null,
+      };
+      if (msg != null) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Não foi possível pedir a busca: $e')));
+      }
+    } finally {
+      if (mounted) setState(() => _sending = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final s = ref.watch(searchStatusProvider);
-    if (s == null) return const SizedBox.shrink();
+    if (s == null) return const SizedBox(height: 12);
+
+    if (!s.hasAiKey) {
+      return Card(
+        margin: const EdgeInsets.only(top: 12),
+        color: AppColors.visaTint,
+        child: ListTile(
+          leading: const Icon(Icons.key, color: AppColors.visa),
+          title: const Text('Cadastre a sua IA para buscar vagas'),
+          subtitle: const Text('Escolha Claude ou ChatGPT, o modelo e cole a sua chave de API.'),
+          trailing: const Icon(Icons.chevron_right),
+          onTap: () => context.push('/ai-settings'),
+        ),
+      );
+    }
+
     if (s.searching) {
       return const Card(
         margin: EdgeInsets.only(top: 12),
@@ -125,27 +168,37 @@ class _SearchBanner extends ConsumerWidget {
         child: ListTile(
           leading: SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2.5)),
           title: Text('Procurando vagas novas'),
-          subtitle: Text('Leva uns 10 minutos. Pode fechar o app: você recebe uma notificação.'),
+          subtitle: Text('Leva uns 15 minutos. Pode fechar o app: você recebe uma notificação.'),
         ),
       );
     }
-    final last = s.finishedAt ?? s.requestedAt;
-    if (last == null) return const SizedBox.shrink();
-    final text = s.status == 'failed'
-        ? 'A última busca falhou; a próxima abertura do app tenta de novo.'
-        : 'Última busca ${_ago(last)}. Uma nova roda ao abrir o app, a cada 3 horas no máximo.';
-    return Padding(
-      padding: const EdgeInsets.only(top: 8),
-      child: Text(text, style: const TextStyle(fontSize: 12, color: AppColors.quiet)),
-    );
-  }
 
-  static String _ago(DateTime d) {
-    final m = DateTime.now().difference(d.toLocal()).inMinutes;
-    if (m < 1) return 'agora há pouco';
-    if (m < 60) return 'há $m min';
-    final h = m ~/ 60;
-    return h < 24 ? 'há $h h' : 'há ${h ~/ 24} ${h ~/ 24 == 1 ? 'dia' : 'dias'}';
+    final String info;
+    if (s.status == 'failed') {
+      info = 'A última busca falhou e não conta no limite. Pode tentar de novo.';
+    } else if (s.nextAllowedAt != null && !s.canSearch) {
+      info = 'Última busca ${_when(s.lastDoneAt ?? s.requestedAt ?? DateTime.now())}. '
+          'Próxima liberada ${_when(s.nextAllowedAt!)}.';
+    } else if (s.lastDoneAt != null) {
+      info = 'Última busca ${_when(s.lastDoneAt!)}. Você pode buscar 1 vez a cada 12 horas.';
+    } else {
+      info = 'Você pode buscar 1 vez a cada 12 horas.';
+    }
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 12),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        FilledButton.icon(
+          onPressed: s.canSearch && !_sending ? _search : null,
+          icon: _sending
+              ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2.5))
+              : const Icon(Icons.travel_explore),
+          label: const Text('Buscar vagas'),
+        ),
+        const SizedBox(height: 6),
+        Text(info, style: const TextStyle(fontSize: 12, color: AppColors.quiet), textAlign: TextAlign.center),
+      ]),
+    );
   }
 }
 

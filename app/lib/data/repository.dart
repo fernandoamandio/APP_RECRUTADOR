@@ -77,6 +77,10 @@ final applicationsProvider = FutureProvider.autoDispose<List<(JobMatch, DateTime
   return ref.watch(repositoryProvider).applications();
 });
 
+final aiSettingsProvider = FutureProvider.autoDispose<Map<String, dynamic>?>((ref) {
+  return ref.watch(repositoryProvider).aiSettings();
+});
+
 final careerProfileProvider = FutureProvider.autoDispose<Map<String, dynamic>?>((ref) {
   return ref.watch(repositoryProvider).careerProfile();
 });
@@ -107,22 +111,34 @@ class Repository {
     return rows.map(JobMatch.fromRow).toList();
   }
 
-  /// Pede uma rodada do worker (o banco ignora se houve busca nas últimas 3 horas).
+  /// Provedor, modelo, final da chave e e-mail de contato (a chave em si nunca volta para o app).
+  Future<Map<String, dynamic>?> aiSettings() => sb
+      .from('user_ai_settings')
+      .select('provider, model, key_hint, contact_email, updated_at')
+      .eq('user_id', uid)
+      .maybeSingle();
+
+  /// Grava as escolhas; `apiKey` nulo mantém a chave já salva. A chave vai para o Vault.
+  Future<void> saveAiSettings({required String provider, required String model, String? apiKey,
+      String? contactEmail}) {
+    return sb.rpc('save_ai_settings', params: {
+      'p_provider': provider,
+      'p_model': model,
+      'p_api_key': apiKey,
+      'p_contact_email': contactEmail,
+    });
+  }
+
+  /// Pede uma busca de vagas (o banco recusa se a última foi há menos de 12 horas).
   Future<SearchStatus> requestSearch() async {
     final res = await sb.rpc('request_job_search');
     return SearchStatus.fromJson(Map<String, dynamic>.from(res as Map));
   }
 
-  /// Último pedido de busca deste usuário.
-  Future<SearchStatus?> latestSearch() async {
-    final row = await sb
-        .from('search_requests')
-        .select('status, requested_at, finished_at')
-        .eq('user_id', uid)
-        .order('requested_at', ascending: false)
-        .limit(1)
-        .maybeSingle();
-    return row == null ? null : SearchStatus.fromJson(row);
+  /// Situação da busca deste usuário: em andamento, última busca e quando a próxima é liberada.
+  Future<SearchStatus> searchStatus() async {
+    final res = await sb.rpc('job_search_status');
+    return SearchStatus.fromJson(Map<String, dynamic>.from(res as Map));
   }
 
   Future<JobMatch> job(String jobId) async {

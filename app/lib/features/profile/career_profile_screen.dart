@@ -7,7 +7,7 @@ import '../../data/repository.dart';
 import '../../theme.dart';
 import '../../widgets/app_nav.dart';
 
-/// Perfil gerado pelo Claude a partir do currículo. O usuário revisa e confirma antes da busca.
+/// Perfil gerado pela IA do usuário a partir do currículo. O usuário revisa e confirma antes da busca.
 class CareerProfileScreen extends ConsumerStatefulWidget {
   const CareerProfileScreen({super.key});
 
@@ -111,6 +111,25 @@ class _CareerProfileScreenState extends ConsumerState<CareerProfileScreen> {
               const SizedBox(height: 24),
               FilledButton(onPressed: _titles!.isEmpty ? null : _confirm, child: const Text('Confirmar e buscar vagas')),
               const SizedBox(height: 24),
+              _Section(title: 'Inteligência artificial', children: [
+                ref.watch(aiSettingsProvider).when(
+                      loading: () => const LinearProgressIndicator(),
+                      error: (_, __) => const SizedBox.shrink(),
+                      data: (ai) => ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        leading: const Icon(Icons.key),
+                        title: Text(ai == null
+                            ? 'Cadastrar Claude ou ChatGPT'
+                            : '${ai['provider'] == 'openai' ? 'ChatGPT' : 'Claude'} · ${ai['model']}'),
+                        subtitle: Text(ai == null
+                            ? 'Necessário para ler o currículo e buscar vagas'
+                            : 'Chave ••••${ai['key_hint'] ?? ''} · toque para trocar provedor, modelo ou chave'),
+                        trailing: const Icon(Icons.chevron_right),
+                        onTap: () => context.push('/ai-settings'),
+                      ),
+                    ),
+              ]),
+              const SizedBox(height: 16),
               _Section(title: 'Conta e segurança', children: [
                 ListTile(
                   contentPadding: EdgeInsets.zero,

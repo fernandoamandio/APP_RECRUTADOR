@@ -39,7 +39,7 @@ def test_job_as_text_includes_location():
 def test_brazilian_job_is_local_without_calling_claude():
     j = RawJob(source="jooble", external_id="1", url="", title="Desenvolvedor PL/SQL", company="Acme",
                city="Campinas, SP", country="BR")
-    r = triage(client=None, model="m", job=j, sponsors=SponsorRegistry({}))  # client None: não pode ser usado
+    r = triage(None, j, SponsorRegistry({}))  # sem IA: a regra do país decide sem chamar o modelo
     assert r.category is Eligibility.LOCAL_BR and r.confidence == 1.0
 
 

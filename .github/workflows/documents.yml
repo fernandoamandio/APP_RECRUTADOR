@@ -45,9 +45,6 @@ jobs:
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-          CLAUDE_PROFILE_MODEL: claude-sonnet-5-5
-          CLAUDE_MATCH_MODEL: claude-haiku-5-5
       - name: Busca pedida pelo app
         id: pending
         if: ${{ inputs.selftest != true }}

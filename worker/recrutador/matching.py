@@ -1,4 +1,4 @@
-"""Percentual de match entre o candidato (currículo + cover letter) e cada vaga, calculado pelo Claude.
+"""Percentual de match entre o candidato (currículo + cover letter) e cada vaga, calculado pela IA do usuário.
 
 O currículo e a cover letter vão em todas as chamadas do mesmo usuário, então ficam
 num bloco com cache de prompt: só a primeira chamada paga o preço cheio desses documentos.
@@ -11,9 +11,7 @@ import base64
 import json
 from dataclasses import dataclass, field
 
-import anthropic
-
-from .llm import call_tool
+from .llm import AIClient
 from .models import RawJob
 
 MAX_JOB_CHARS = 8_000
@@ -100,8 +98,8 @@ def parse_match(data: dict) -> MatchResult:
     return MatchResult(percent=pct, strengths=clean(data.get("strengths")), gaps=clean(data.get("gaps")))
 
 
-def match(client: anthropic.Anthropic, model: str, candidate: CandidateMaterial, job: RawJob) -> MatchResult:
-    data = call_tool(client, model=model, system=SYSTEM, tool=MATCH_TOOL, max_tokens=600, messages=[
+def match(ai: AIClient, candidate: CandidateMaterial, job: RawJob) -> MatchResult:
+    data = ai.call_tool(system=SYSTEM, tool=MATCH_TOOL, max_tokens=600, messages=[
         {"role": "user", "content": [*candidate.content_blocks(), {"type": "text", "text": job_as_text(job)}]},
     ])
     return parse_match(data)

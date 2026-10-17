@@ -1,7 +1,8 @@
 name: Worker de vagas
 
-# Sem horário fixo: roda quando o app é aberto (pedido em search_requests, no máximo 1 a cada 3 horas)
-# ou manualmente pela aba Actions. Quem dispara é o banco (pg_net) ou o workflow "Analisar currículos".
+# Sem horário fixo: roda quando alguém toca em "Buscar vagas" no app (1 vez a cada 12 horas por usuário).
+# Quem dispara é o banco (pg_net) ou o workflow "Analisar currículos". Rodar à mão sem pedido não faz nada.
+# A chave de IA (Claude ou ChatGPT) e o e-mail de contato vêm do cadastro de cada usuário no app.
 on:
   workflow_dispatch: {}
 
@@ -37,8 +38,6 @@ jobs:
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-          CLAUDE_TRIAGE_MODEL: claude-haiku-5-5
           ADZUNA_APP_ID: ${{ secrets.ADZUNA_APP_ID }}
           ADZUNA_APP_KEY: ${{ secrets.ADZUNA_APP_KEY }}
           ADZUNA_COUNTRIES: br,gb,nl,de,us,ca
@@ -51,4 +50,3 @@ jobs:
           APIFY_BR_RESULTS: ${{ secrets.APIFY_BR_RESULTS || vars.APIFY_BR_RESULTS }}
           INFOJOBS_CLIENT_ID: ${{ secrets.INFOJOBS_CLIENT_ID }}
           INFOJOBS_CLIENT_SECRET: ${{ secrets.INFOJOBS_CLIENT_SECRET }}
-          CONTACT_EMAIL: ${{ secrets.CONTACT_EMAIL }}

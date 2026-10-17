@@ -52,7 +52,7 @@ begin
 
   insert into public.search_requests (user_id) values (uid) returning * into req;
 
-  -- Disparo imediato, só se o token do GitHub estiver no Vault (ver docs/SEARCH_ON_OPEN.md)
+  -- Disparo imediato, só se o token do GitHub estiver no Vault (ver docs/SEARCH_BUTTON.md)
   begin
     select decrypted_secret into gh_token from vault.decrypted_secrets where name = 'github_dispatch_token' limit 1;
     if gh_token is not null then

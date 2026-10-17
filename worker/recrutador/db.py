@@ -6,6 +6,7 @@ from datetime import datetime, timezone
 
 from supabase import Client, create_client
 
+from .llm import AIClient
 from .models import CareerProfile, Household, RawJob, TriageResult
 
 
@@ -211,12 +212,24 @@ class Database:
 
     # ---------- buscas pedidas pelo app ----------
 
-    def claim_search_requests(self) -> list[int]:
-        """Marca como em andamento os pedidos de busca feitos ao abrir o app."""
+    def claim_search_requests(self) -> list[dict]:
+        """Marca como em andamento os pedidos do botão "Buscar vagas". Devolve [{id, user_id}]."""
         now = datetime.now(timezone.utc).isoformat()
         rows = (self.sb.table("search_requests").update({"status": "running", "started_at": now})
                 .eq("status", "pending").execute().data)
-        return [r["id"] for r in rows]
+        return [{"id": r["id"], "user_id": r["user_id"]} for r in rows]
+
+    def users_with_ai(self) -> list[str]:
+        return [r["user_id"] for r in self.sb.table("user_ai_settings").select("user_id").execute().data]
+
+    def ai_client(self, user_id: str) -> AIClient | None:
+        """Provedor, modelo e chave de IA que o usuário cadastrou no app (chave guardada no Vault)."""
+        rows = self.sb.rpc("ai_credentials", {"p_user": user_id}).execute().data or []
+        row = rows[0] if isinstance(rows, list) and rows else (rows if isinstance(rows, dict) else None)
+        if not row or not row.get("api_key"):
+            return None
+        return AIClient(provider=row["provider"], model=row["model"], api_key=row["api_key"],
+                        contact_email=row.get("contact_email") or "")
 
     def finish_search_requests(self, ids: list[int], ok: bool) -> None:
         if ids:

@@ -94,7 +94,7 @@ class _DocumentsScreenState extends ConsumerState<DocumentsScreen> {
         children: [
           Text('Seu currículo', style: t.headlineMedium),
           const SizedBox(height: 8),
-          Text('Envie o currículo em PDF ou o PDF do seu perfil do LinkedIn. O Claude lê o documento, '
+          Text('Envie o currículo em PDF ou o PDF do seu perfil do LinkedIn. A IA que você escolher (Claude ou ChatGPT) lê o documento, '
               'monta seu perfil e compara cada vaga com ele.', style: t.bodyLarge),
           const SizedBox(height: 16),
           CheckboxListTile(
